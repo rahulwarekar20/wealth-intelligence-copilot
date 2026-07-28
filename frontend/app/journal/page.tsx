@@ -58,10 +58,13 @@ export default function JournalPage() {
         </h1>
         <div className="flex gap-4 items-center">
           <Link href="/dashboard" className="text-gray-300 hover:text-teal-400 transition">
-            Dashboard
+           Dashboard
+          </Link>
+          <Link href="/strategy" className="text-gray-300 hover:text-teal-400 transition">
+           Strategy
           </Link>
           <Link href="/chat" className="text-gray-300 hover:text-teal-400 transition">
-            Chat
+           Chat
           </Link>
         </div>
       </nav>

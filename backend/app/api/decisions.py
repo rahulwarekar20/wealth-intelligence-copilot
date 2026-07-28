@@ -104,3 +104,33 @@ def get_journal(
         }
         for d in decisions
     ]
+
+@router.get("/portfolio-strategy")
+def portfolio_strategy(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    Analyses ALL portfolio positions simultaneously and returns
+    a buy/sell/hold strategy for every holding plus overall
+    portfolio health assessment.
+    """
+    from app.agents.portfolio_strategy_agent import run_portfolio_strategy
+
+    result = run_portfolio_strategy(db=db, user_id=user_id)
+
+    # Save to decision journal as a portfolio-wide decision
+    if result.get("positions"):
+        decision = Decision(
+            user_id=user_id,
+            ticker="PORTFOLIO",
+            query_text="Portfolio-wide strategy analysis",
+            recommendation_json=result,
+            confidence=result.get("portfolio_health", {}).get("overall_score", 0) / 100,
+            evidence_diversity_score=0.8,
+            prompt_version="v1"
+        )
+        db.add(decision)
+        db.commit()
+
+    return result

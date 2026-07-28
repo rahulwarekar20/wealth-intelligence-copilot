@@ -54,12 +54,15 @@ export default function DashboardPage() {
           Wealth Intelligence Copilot
         </h1>
         <div className="flex gap-4 items-center">
-          <Link href="/chat" className="text-gray-300 hover:text-teal-400 transition">
-            Chat
-          </Link>
+         <Link href="/strategy" className="text-gray-300 hover:text-teal-400 transition">
+            Strategy
+         </Link>
+         <Link href="/chat" className="text-gray-300 hover:text-teal-400 transition">
+           Chat
+         </Link>
           <Link href="/journal" className="text-gray-300 hover:text-teal-400 transition">
             Journal
-          </Link>
+           </Link>
           <button
             onClick={handleLogout}
             className="text-gray-400 hover:text-red-400 transition text-sm"
