@@ -3,8 +3,8 @@ import json
 from app.core.config import settings
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.1-8b-instant"
-GROQ_MODEL_LARGE = "llama-3.3-70b-versatile"
+GROQ_MODEL = "qwen/qwen3.8-27b"
+GROQ_MODEL_LARGE = "qwen/qwen3.8-27b"
 
 
 def invoke_claude(
