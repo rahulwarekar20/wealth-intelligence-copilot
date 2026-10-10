@@ -1,14 +1,22 @@
-# Wealth Intelligence Copilot
+# Wealth Intelligence Copilot (WIC)
 
 An AI-powered investment decision support platform that helps investors make informed decisions using evidence-graded, portfolio-aware recommendations.
 
+## What it does
+
+- **Portfolio Strategy** — evaluates ALL your positions simultaneously and gives buy/hold/sell recommendations for each one
+- **Ask Copilot** — chat with a 5-agent AI system about any stock or your full portfolio
+- **Decision Journal** — every recommendation is logged with timestamp, confidence score, and reasoning
+- **Retirement Planner** — answers "when can I retire?" with a projection based on your savings and expenses
+- **Document Upload** — upload financial documents for the AI to use as evidence
+
 ## Architecture
 
-- **Frontend:** React/Next.js with Tailwind CSS
-- **Backend:** FastAPI (Python)
-- **Database:** PostgreSQL with pgvector
+- **Frontend:** React / Next.js 16 with Tailwind CSS
+- **Backend:** FastAPI (Python 3.11)
+- **Database:** PostgreSQL with pgvector extension
 - **AI Orchestration:** LangGraph 5-agent framework
-- **Foundation Models:** Amazon Bedrock (Claude)
+- **LLM Provider:** Groq (development) / Amazon Bedrock (production target)
 - **Infrastructure:** AWS (ECS Fargate, RDS, S3, Cognito, CloudWatch)
 
 ## 5-Agent System
@@ -16,78 +24,85 @@ An AI-powered investment decision support platform that helps investors make inf
 | Agent | Role |
 |---|---|
 | Supervisor Agent | Classifies intent and routes to specialist agents |
-| Portfolio Agent | Analyzes concentration and portfolio impact |
-| Evidence Agent | Gathers news sentiment and fundamentals |
+| Portfolio Agent | Analyses concentration risk across your holdings |
+| Evidence Agent | Gathers news sentiment and company fundamentals |
 | Market Data Agent | Interprets live price and momentum signals |
-| Recommendation Composer | Synthesizes all outputs into a structured recommendation |
+| Recommendation Composer | Synthesises all outputs into a structured recommendation |
 
-## Key Features
+## Key Differentiators
 
-- **Portfolio-aware recommendations** — every evaluation considers existing holdings
-- **Evidence diversity scoring** — surfaces agreement and disagreement across sources
-- **Multi-agent attribution** — shows which agent contributed which insight
-- **Decision journal** — logs every recommendation with timestamps
-- **Disagreement flagging** — explicitly surfaces when agents conflict
+- **Portfolio-aware** — every recommendation considers your full portfolio, not just one stock in isolation
+- **Evidence diversity scoring** — surfaces when agents agree or disagree
+- **Full attribution** — shows which agent contributed which insight
+- **Disagreement flagging** — explicitly flags when evidence sources conflict
+- **Decision journal** — logs every recommendation for future outcome tracking
 
-## Local Setup
+## Pages
 
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- Docker Desktop
-- AWS CLI configured
-
-### Backend
-```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate  # Windows
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Database
-```bash
-docker-compose up -d
-```
+| Page | URL | Description |
+|---|---|---|
+| Dashboard | /dashboard | Live portfolio value, holdings table, concentration bars |
+| Analyse Portfolio | /strategy | AI strategy across all positions simultaneously |
+| Ask Copilot | /chat | Chat interface — single stock or full portfolio (type ALL) |
+| Journal | /journal | Past decisions with confidence scores |
+| Documents | /upload | Upload financial documents as AI evidence |
+| Retirement Plan | /retire | Retirement projection calculator |
 
 ## API Endpoints
 
 | Endpoint | Method | Description |
 |---|---|---|
-| /auth/signup | POST | Register a new user |
-| /auth/login | POST | Login and get JWT token |
-| /portfolio/holdings | GET/POST | Manage portfolio holdings |
+| /health | GET | Service health check |
+| /auth/signup | POST | Register new user |
+| /auth/login | POST | Login, returns JWT token |
+| /auth/me | GET | Get current user profile |
+| /portfolio/holdings | GET / POST / DELETE | Manage portfolio holdings |
 | /portfolio/summary | GET | Live prices, net worth, concentration |
 | /evidence/{ticker} | GET | Gather evidence for a ticker |
-| /decisions/query | POST | Run 5-agent analysis |
-| /decisions/journal | GET | View past decisions |
+| /decisions/query | POST | Run 5-agent analysis for a single stock |
+| /decisions/portfolio-strategy | GET | Run strategy across ALL positions |
+| /decisions/journal | GET | List past recommendations |
+| /documents/upload | POST | Upload a financial document |
+
+## Local Setup
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+- Docker Desktop
+- AWS CLI configured
+
+### 1. Start the database
+
+    docker-compose up -d
+
+### 2. Start the backend
+
+    cd backend
+    python -m venv venv
+    venv\Scripts\activate
+    pip install -r requirements.txt
+    python -m app.seed
+    uvicorn app.main:app --port 8000
+
+### 3. Start the frontend
+
+    cd frontend
+    npm install
+    npm run dev
+
+### 4. Open the app
+
+    http://localhost:3000
+
+Demo login: test@example.com / testpass123
 
 ## Environment Variables
 
-Copy `backend/.env.example` to `backend/.env` and fill in your own values:
+## Specification Documents
 
-```
-DATABASE_URL=postgresql+psycopg2://wealth:password@localhost:5432/wealth_copilot
-JWT_SECRET=generate_with_python_secrets_token_hex_32
-FINNHUB_API_KEY=get_from_finnhub.io
-GROQ_API_KEY=get_from_console.groq.com
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your_iam_user_key
-AWS_SECRET_ACCESS_KEY=your_iam_user_secret
-```
-
-## Documents
-
-This project includes four specification documents:
-- Document 1: Product Vision & Business Requirements
-- Document 2: Software Requirements Specification  
-- Document 3: Solution Architecture Document
-- Document 4: Technical Design & Developer Guide
+- Document 1: Product Vision and Business Requirements
+- Document 2: Software Requirements Specification
+- Document 3: Solution Architecture Document with C4 diagrams
+- Document 4: Technical Design and Developer Guide
