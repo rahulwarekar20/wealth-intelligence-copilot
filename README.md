@@ -19,6 +19,22 @@ An AI-powered investment decision support platform that helps investors make inf
 - **LLM Provider:** Groq (development) / Amazon Bedrock (production target)
 - **Infrastructure:** AWS (ECS Fargate, RDS, S3, Cognito, CloudWatch)
 
+## Test Coverage
+
+27/27 tests passing across 4 test suites:
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| test_auth.py | 9 | Signup, login, JWT validation, protected routes |
+| test_portfolio.py | 7 | Holdings CRUD, data isolation between users |
+| test_security.py | 5 | Token validation, SQL injection, input validation |
+| test_guardrails.py | 6 | Evidence diversity scorer, AI guardrail logic |
+
+Run the tests:
+
+    cd backend
+    pytest tests/ -v
+
 ## 5-Agent System
 
 | Agent | Role |
