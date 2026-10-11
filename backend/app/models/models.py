@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Numeric, ForeignKey, TIMESTAMP, text
+from sqlalchemy import Column, String, Numeric, Integer, Text, ForeignKey, TIMESTAMP, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.core.db import Base
@@ -53,13 +53,13 @@ class Decision(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=text("now()"))
 
 
-class ChatMessage(Base):
-    __tablename__ = "chat_messages"
+class Document(Base):
+    __tablename__ = "documents"
     __table_args__ = {"extend_existing": True}
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    session_id = Column(UUID(as_uuid=True), nullable=False)
-    role = Column(String, nullable=False)
-    content = Column(String, nullable=False)
-    agent_attribution_json = Column(JSONB)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    filename = Column(String, nullable=False)
+    content_type = Column(String, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    text_content = Column(Text, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=text("now()"))

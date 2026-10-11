@@ -1,34 +1,62 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.core.db import get_db
 from app.core.security import get_current_user_id
-from app.agents.graph import run_decision
 from app.models.models import Decision
+from app.services.ask_service import answer_question, save_strategy
 
 router = APIRouter(prefix="/decisions", tags=["decisions"])
 
 
-class DecisionQuery(BaseModel):
-    query: str
-    ticker: str
+class HistoryMessage(BaseModel):
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(max_length=4000)
 
 
-class DecisionOut(BaseModel):
-    decision_id: str
-    ticker: str
-    action: str
-    confidence: float
-    confidence_label: str
-    summary: str
-    evidence_for: list
-    evidence_against: list
-    portfolio_impact: str
-    disagreement_flag: bool
-    disagreement_note: str | None
-    attribution: dict
-    evidence_diversity_score: float
-    disclosure: str
+class AskQuery(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+    conversation_history: list[HistoryMessage] = Field(default=[], max_length=20)
+
+
+class DecisionQuery(AskQuery):
+    ticker: str = Field(min_length=1, max_length=10)
+
+
+class RetirementQuery(AskQuery):
+    pass
+
+
+def _history(messages: list[HistoryMessage]) -> list[dict]:
+    return [m.model_dump() for m in messages]
+
+
+def _respond(result: dict) -> dict:
+    # Never present (or journal) a fake answer when the AI failed
+    if result.get("error"):
+        raise HTTPException(status_code=502, detail=result["error"])
+    return result
+
+
+@router.post("/ask")
+def ask(
+    payload: AskQuery,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    Copilot chat endpoint. Works out whether the question is about a stock
+    (and which one), the whole portfolio, or retirement, and answers it.
+    Response "route" is one of: recommendation, comparison, strategy, retirement, clarify.
+    """
+    if not payload.query.strip():
+        raise HTTPException(status_code=400, detail="Query is required")
+    return _respond(answer_question(
+        query=payload.query,
+        history=_history(payload.conversation_history),
+        user_id=user_id,
+        db=db,
+    ))
 
 
 @router.post("/query")
@@ -37,42 +65,19 @@ def submit_query(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    """
-    Core endpoint -- runs the 5-agent LangGraph system
-    and returns a structured investment recommendation.
-    """
-    if not payload.ticker:
+    """Same as /ask, but the ticker is supplied explicitly instead of detected."""
+    ticker = payload.ticker.strip().upper()
+    if not ticker:
         raise HTTPException(status_code=400, detail="Ticker is required")
-
-    if not payload.query:
+    if not payload.query.strip():
         raise HTTPException(status_code=400, detail="Query is required")
-
-    # Run the multi-agent graph
-    recommendation = run_decision(
+    return _respond(answer_question(
         query=payload.query,
-        ticker=payload.ticker.upper(),
+        history=_history(payload.conversation_history),
         user_id=user_id,
-        db=db
-    )
-
-    # Save to decision journal
-    decision = Decision(
-        user_id=user_id,
-        ticker=payload.ticker.upper(),
-        query_text=payload.query,
-        recommendation_json=recommendation,
-        confidence=recommendation.get("confidence", 0),
-        evidence_diversity_score=recommendation.get("evidence_diversity_score", 0),
-        prompt_version=recommendation.get("prompt_version", "v1")
-    )
-    db.add(decision)
-    db.commit()
-    db.refresh(decision)
-
-    return {
-        "decision_id": str(decision.id),
-        **recommendation
-    }
+        db=db,
+        ticker=ticker,
+    ))
 
 
 @router.get("/journal")
@@ -105,6 +110,7 @@ def get_journal(
         for d in decisions
     ]
 
+
 @router.get("/portfolio-strategy")
 def portfolio_strategy(
     user_id: str = Depends(get_current_user_id),
@@ -119,18 +125,27 @@ def portfolio_strategy(
 
     result = run_portfolio_strategy(db=db, user_id=user_id)
 
-    # Save to decision journal as a portfolio-wide decision
-    if result.get("positions"):
-        decision = Decision(
-            user_id=user_id,
-            ticker="PORTFOLIO",
-            query_text="Portfolio-wide strategy analysis",
-            recommendation_json=result,
-            confidence=result.get("portfolio_health", {}).get("overall_score", 0) / 100,
-            evidence_diversity_score=0.8,
-            prompt_version="v1"
-        )
-        db.add(decision)
-        db.commit()
-
+    if result.get("no_holdings"):
+        return result
+    _respond(result)
+    save_strategy(db, user_id, result)
     return result
+
+
+@router.post("/retirement")
+def retirement_analysis(
+    payload: RetirementQuery,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    Retirement Intelligence Agent endpoint.
+    Answers retirement questions using the user's actual portfolio.
+    """
+    from app.agents.retirement_agent import run_retirement_analysis
+    return _respond(run_retirement_analysis(
+        query=payload.query,
+        user_id=user_id,
+        db=db,
+        history=_history(payload.conversation_history)
+    ))

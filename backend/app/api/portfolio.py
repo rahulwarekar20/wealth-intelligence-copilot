@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.db import get_db
@@ -33,7 +34,7 @@ def add_holding(
         id=str(holding.id),
         ticker=holding.ticker,
         quantity=float(holding.quantity),
-        cost_basis=float(holding.cost_basis) if holding.cost_basis else None,
+        cost_basis=float(holding.cost_basis) if holding.cost_basis is not None else None,
         account_type=holding.account_type
     )
 
@@ -50,7 +51,7 @@ def list_holdings(
             id=str(h.id),
             ticker=h.ticker,
             quantity=float(h.quantity),
-            cost_basis=float(h.cost_basis) if h.cost_basis else None,
+            cost_basis=float(h.cost_basis) if h.cost_basis is not None else None,
             account_type=h.account_type
         )
         for h in holdings
@@ -64,6 +65,10 @@ def remove_holding(
     db: Session = Depends(get_db)
 ):
     """Delete a holding from the user's portfolio."""
+    try:
+        uuid.UUID(holding_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Holding not found")
     deleted = delete_holding(db, holding_id, user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Holding not found")

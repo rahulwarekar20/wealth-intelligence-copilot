@@ -1,6 +1,27 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.models.models import EvidenceItem
 from datetime import datetime, timezone
+import logging
+
+logger = logging.getLogger("wealth-copilot.evidence")
+
+# Only the most recent snapshots per ticker/source are kept
+MAX_ITEMS_PER_SOURCE = 20
+
+
+def _prune_old_items(db: Session, ticker: str, source_type: str) -> None:
+    stale_ids = [
+        row.id for row in (
+            db.query(EvidenceItem.id)
+            .filter(EvidenceItem.ticker == ticker, EvidenceItem.source_type == source_type)
+            .order_by(EvidenceItem.retrieved_at.desc())
+            .offset(MAX_ITEMS_PER_SOURCE)
+            .all()
+        )
+    ]
+    if stale_ids:
+        db.query(EvidenceItem).filter(EvidenceItem.id.in_(stale_ids)).delete(synchronize_session=False)
 
 
 def save_evidence_item(
@@ -10,17 +31,28 @@ def save_evidence_item(
     payload: dict,
     reliability_weight: float = 1.0
 ) -> EvidenceItem:
-    item = EvidenceItem(
-        ticker=ticker.upper(),
-        source_type=source_type,
-        payload=payload,
-        reliability_weight=reliability_weight,
-        retrieved_at=datetime.now(timezone.utc)
-    )
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    return item
+    try:
+        item = EvidenceItem(
+            ticker=ticker.upper(),
+            source_type=source_type,
+            payload=payload,
+            reliability_weight=reliability_weight,
+            retrieved_at=datetime.now(timezone.utc)
+        )
+        db.add(item)
+        db.flush()
+        _prune_old_items(db, ticker.upper(), source_type)
+        db.commit()
+        db.refresh(item)
+        return item
+    except IntegrityError:
+        db.rollback()
+        # Return the existing item instead of crashing
+        return get_latest_evidence(db, ticker, source_type)
+    except Exception as e:
+        db.rollback()
+        logger.warning("Failed to save evidence %s/%s: %s", ticker, source_type, e)
+        return None
 
 
 def get_evidence_by_ticker(

@@ -4,7 +4,8 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 class UserSignup(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8)
+    # bcrypt only uses the first 72 bytes of a password
+    password: str = Field(min_length=8, max_length=72)
 
 
 class UserLogin(BaseModel):
@@ -28,8 +29,8 @@ class UserOut(BaseModel):
 class HoldingCreate(BaseModel):
     ticker: str = Field(min_length=1, max_length=10)
     quantity: float = Field(gt=0)
-    cost_basis: Optional[float] = None
-    account_type: str = "taxable"
+    cost_basis: Optional[float] = Field(default=None, ge=0)
+    account_type: str = Field(default="taxable", max_length=30)
 
 
 class HoldingOut(BaseModel):

@@ -1,120 +1,86 @@
+import logging
 from sqlalchemy.orm import Session
-from app.agents.bedrock_client import invoke_claude
 from app.repositories.portfolio_repository import get_holdings
-import json
+from app.services.portfolio_service import value_holdings
+
+logger = logging.getLogger("wealth-copilot.portfolio_agent")
+
+HIGH_CONCENTRATION_PCT = 25
+MEDIUM_CONCENTRATION_PCT = 15
+
+
+def _concentration_flag(weight: float) -> str:
+    return "HIGH" if weight > HIGH_CONCENTRATION_PCT else "MEDIUM" if weight > MEDIUM_CONCENTRATION_PCT else "LOW"
 
 
 def analyze_portfolio_impact(ticker: str, action: str, db: Session, user_id: str = "") -> dict:
-    try:
-        print(f"[Portfolio Agent] user_id received: '{user_id}'")
-        holdings = get_holdings(db, user_id)
-        print(f"[Portfolio Agent] holdings found: {len(holdings)}")
+    """
+    Portfolio Agent -- how a position fits the user's portfolio, using live
+    market-value weights (the same basis as the dashboard).
 
+    Rule-based: it applies fixed concentration thresholds to exact weights, so it
+    no longer spends an LLM call (and AI rate-limit budget) restating numbers.
+    """
+    ticker = ticker.upper()
+    try:
+        holdings = get_holdings(db, user_id)
+        empty_summary = {"total_value": 0, "position_count": 0, "concentration": {}}
         if not holdings:
             return {
                 "concentration_flag": "LOW",
-                "portfolio_impact": "No holdings found in portfolio",
+                "current_weight_pct": 0,
+                "portfolio_impact": "You have no holdings yet, so any position would be your whole portfolio.",
                 "warning": None,
-                "portfolio_summary": {
-                    "total_value": 0,
-                    "position_count": 0,
-                    "concentration": {}
-                }
+                "portfolio_summary": empty_summary,
             }
 
-        total_cost = sum(
-            float(h.quantity) * float(h.cost_basis or 0)
-            for h in holdings
-        )
+        positions, total_value, unpriced = value_holdings(holdings)
+        concentration: dict = {}
+        for p in positions:
+            if p["weight_pct"] is not None:
+                concentration[p["ticker"]] = round(concentration.get(p["ticker"], 0) + p["weight_pct"], 2)
 
-        holdings_text = ""
-        concentration = {}
-        for h in holdings:
-            value = float(h.quantity) * float(h.cost_basis or 0)
-            pct = (value / total_cost * 100) if total_cost > 0 else 0
-            concentration[h.ticker] = round(pct, 2)
-            holdings_text += f"  - {h.ticker}: {h.quantity} shares, cost basis ${h.cost_basis}, weight {pct:.1f}%\n"
+        weight = concentration.get(ticker, 0.0)
+        flag = _concentration_flag(weight)
+        largest_ticker, largest_weight = max(concentration.items(), key=lambda kv: kv[1], default=(None, 0))
 
-        portfolio_context = f"""
-Current Portfolio ({len(holdings)} positions, total cost basis ${total_cost:,.2f}):
-{holdings_text}
-Concentration by cost basis: {json.dumps(concentration)}
-"""
+        if ticker not in concentration:
+            impact = f"You don't hold {ticker}; buying it would add a new position and diversify your holdings."
+        elif flag == "HIGH":
+            impact = (f"{ticker} is {weight:.1f}% of your portfolio — above the {HIGH_CONCENTRATION_PCT}% "
+                      f"concentration limit. Adding more increases single-stock risk.")
+        elif flag == "MEDIUM":
+            impact = (f"{ticker} is {weight:.1f}% of your portfolio — moderate concentration; "
+                      f"keep additions small to stay under {HIGH_CONCENTRATION_PCT}%.")
+        else:
+            impact = f"{ticker} is {weight:.1f}% of your portfolio — a modest position with room to add."
 
-        system_prompt = """You are the Portfolio Agent for a wealth intelligence platform.
-Analyze the impact of a proposed investment action on an existing portfolio.
+        warning = None
+        if flag == "HIGH":
+            warning = f"{ticker} exceeds {HIGH_CONCENTRATION_PCT}% of the portfolio."
+        elif largest_ticker and largest_ticker != ticker and largest_weight > HIGH_CONCENTRATION_PCT:
+            warning = f"Your largest position, {largest_ticker}, is {largest_weight:.1f}% of the portfolio."
+        if unpriced:
+            note = f"Live prices unavailable for: {', '.join(unpriced)}"
+            warning = f"{warning} {note}" if warning else note
 
-Focus on:
-1. Concentration risk -- would this increase exposure too much?
-2. Sector overlap -- heavy exposure to this sector already?
-3. Portfolio impact -- how would this change the overall balance?
-
-Flag HIGH concentration if any single position would exceed 25%.
-Flag MEDIUM concentration if between 15-25%.
-Flag LOW concentration if under 15%.
-
-Respond in this exact JSON format with no other text:
-{
-  "concentration_flag": "HIGH|MEDIUM|LOW",
-  "current_weight_pct": 16.44,
-  "sector_overlap": "high|medium|low",
-  "portfolio_impact": "brief description of impact",
-  "recommendation": "brief portfolio-level recommendation",
-  "warning": "any specific warning or null"
-}"""
-
-        user_prompt = f"""Analyze the portfolio impact of this action:
-Ticker: {ticker}
-Action: {action}
-
-{portfolio_context}
-
-Respond with JSON only."""
-
-        response = invoke_claude(
-            system_prompt,
-            user_prompt,
-            max_tokens=512,
-            use_haiku=True
-        )
-
-        print(f"[Portfolio Agent] raw response: {response[:200]}")
-
-        clean = response.strip().replace("```json", "").replace("```", "").strip()
-        start = clean.find("{")
-        end = clean.rfind("}") + 1
-        if start >= 0 and end > start:
-            clean = clean[start:end]
-
-        try:
-            result = json.loads(clean)
-        except json.JSONDecodeError:
-            current_weight = concentration.get(ticker.upper(), 0)
-            flag = "HIGH" if current_weight > 25 else "MEDIUM" if current_weight > 15 else "LOW"
-            result = {
-                "concentration_flag": flag,
-                "current_weight_pct": current_weight,
-                "sector_overlap": "medium",
-                "portfolio_impact": f"{ticker} currently represents {current_weight:.1f}% of your portfolio",
-                "recommendation": "Consider position sizing carefully",
-                "warning": None
-            }
-
-        result["portfolio_summary"] = {
-            "total_value": total_cost,
-            "position_count": len(holdings),
-            "concentration": concentration
+        return {
+            "concentration_flag": flag,
+            "current_weight_pct": weight,
+            "portfolio_impact": impact,
+            "warning": warning,
+            "portfolio_summary": {
+                "total_value": round(total_value, 2),
+                "position_count": len(holdings),
+                "concentration": concentration,
+            },
         }
-        return result
 
     except Exception as e:
+        logger.exception("Portfolio agent failed")
         return {
             "concentration_flag": "UNKNOWN",
             "portfolio_impact": f"Error: {str(e)}",
             "warning": str(e),
-            "portfolio_summary": {
-                "total_value": 0,
-                "position_count": 0,
-                "concentration": {}
-            }
+            "portfolio_summary": {"total_value": 0, "position_count": 0, "concentration": {}},
         }

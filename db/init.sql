@@ -33,13 +33,23 @@ CREATE TABLE decisions (
 );
 CREATE INDEX idx_decisions_user_time ON decisions(user_id, created_at DESC);
 
-CREATE TABLE chat_messages (
+CREATE TABLE documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    session_id UUID NOT NULL,
-    role TEXT CHECK (role IN ('user','assistant')) NOT NULL,
-    content TEXT NOT NULL,
-    agent_attribution_json JSONB,
+    filename TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    text_content TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_chat_session ON chat_messages(session_id, created_at ASC);
+CREATE INDEX idx_documents_user ON documents(user_id);
+
+CREATE TABLE evidence_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticker TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    reliability_weight NUMERIC DEFAULT 1.0,
+    retrieved_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_evidence_ticker_time ON evidence_items(ticker, retrieved_at DESC);

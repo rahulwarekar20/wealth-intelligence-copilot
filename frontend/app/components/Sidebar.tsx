@@ -1,25 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { logout } from "@/lib/api";
 
 export default function Sidebar() {
-  const router = useRouter();
   const pathname = usePathname();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    router.push("/");
-  };
+  const handleLogout = () => logout();
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: "📊" },
     { href: "/strategy", label: "Analyse Portfolio", icon: "🧠" },
     { href: "/chat", label: "Ask Copilot", icon: "💬" },
-    { href: "/journal", label: "Journal", icon: "📓" },
     { href: "/upload", label: "Documents", icon: "📄" },
-    { href: "/retire", label: "Retirement Plan", icon: "🏖️" },
   ];
 
   return (

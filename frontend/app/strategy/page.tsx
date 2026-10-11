@@ -1,65 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import axios from "axios";
+import { useState } from "react";
 import PageLayout from "../components/PageLayout";
+import SourceList from "../components/SourceList";
+import { getErrorMessage, getPortfolioStrategy } from "@/lib/api";
+import { useSessionState } from "@/lib/sessionStore";
+import { useRequireAuth } from "@/lib/useRequireAuth";
+import { actionColor, formatMoney, healthColor } from "@/lib/ui";
+import type { PortfolioStrategy } from "@/lib/types";
+
+const NO_STRATEGY: PortfolioStrategy | null = null;
+
+const concentrationColor = (flag?: string) => {
+  switch (flag?.toUpperCase()) {
+    case "HIGH": return "text-red-400";
+    case "MEDIUM": return "text-yellow-400";
+    default: return "text-green-400";
+  }
+};
 
 export default function StrategyPage() {
-  const [strategy, setStrategy] = useState<any>(null);
+  useRequireAuth();
+  // Shared with the dashboard; cleared there whenever holdings change
+  const [strategy, setStrategy, clearStrategy] = useSessionState("strategy", NO_STRATEGY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) router.push("/");
-    const cached = sessionStorage.getItem("strategy");
-    if (cached) setStrategy(JSON.parse(cached));
-  }, []);
 
   const runStrategy = async () => {
     setLoading(true);
     setError("");
-    setStrategy(null);
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get(
-        "http://localhost:8000/decisions/portfolio-strategy",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setStrategy(response.data);
-      sessionStorage.setItem("strategy", JSON.stringify(response.data));
+      const data = await getPortfolioStrategy();
+      if (data.no_holdings) {
+        clearStrategy();
+        setError("You don't have any holdings yet. Add some on the Dashboard first.");
+      } else {
+        setStrategy(data);
+      }
     } catch (err) {
-      setError("Failed to run strategy analysis. Please try again.");
+      setError(getErrorMessage(err, "Failed to run strategy analysis. Please try again."));
     } finally {
       setLoading(false);
     }
-  };
-
-  const getActionColor = (action: string) => {
-    switch (action?.toLowerCase()) {
-      case "buy":
-      case "buy more": return "bg-green-900 text-green-300 border-green-700";
-      case "sell":
-      case "trim": return "bg-red-900 text-red-300 border-red-700";
-      case "hold": return "bg-yellow-900 text-yellow-300 border-yellow-700";
-      case "rebalance": return "bg-blue-900 text-blue-300 border-blue-700";
-      default: return "bg-gray-800 text-gray-300 border-gray-700";
-    }
-  };
-
-  const getConcentrationColor = (flag: string) => {
-    switch (flag?.toUpperCase()) {
-      case "HIGH": return "text-red-400";
-      case "MEDIUM": return "text-yellow-400";
-      default: return "text-green-400";
-    }
-  };
-
-  const getHealthColor = (score: number) => {
-    if (score >= 70) return "text-green-400";
-    if (score >= 50) return "text-yellow-400";
-    return "text-red-400";
   };
 
   return (
@@ -70,7 +52,7 @@ export default function StrategyPage() {
           <p className="text-gray-400 mt-1">AI analysis across all your positions simultaneously</p>
         </div>
 
-        {!strategy && !loading && (
+        {!strategy && !loading && !error && (
           <div className="bg-gray-900 rounded-2xl p-10 text-center border border-gray-800">
             <p className="text-4xl mb-4">🧠</p>
             <p className="text-white text-xl font-semibold mb-2">Ready to analyse your portfolio?</p>
@@ -94,14 +76,14 @@ export default function StrategyPage() {
           </div>
         )}
 
-        {error && (
+        {error && !loading && (
           <div className="bg-red-950 border border-red-800 rounded-xl p-4 mb-6">
             <p className="text-red-300">{error}</p>
             <button onClick={runStrategy} className="mt-3 px-4 py-2 bg-red-800 hover:bg-red-700 text-white rounded-lg text-sm transition">Try Again</button>
           </div>
         )}
 
-        {strategy && (
+        {strategy && !loading && (
           <div className="space-y-6">
 
             {/* Health Card */}
@@ -113,7 +95,7 @@ export default function StrategyPage() {
               <div className="grid grid-cols-3 gap-4 mb-4">
                 <div className="bg-gray-800 rounded-xl p-4 text-center">
                   <p className="text-gray-400 text-xs mb-1">Health Score</p>
-                  <p className={`text-3xl font-bold ${getHealthColor(strategy.portfolio_health?.overall_score || 0)}`}>
+                  <p className={`text-3xl font-bold ${healthColor(strategy.portfolio_health?.overall_score || 0)}`}>
                     {strategy.portfolio_health?.overall_score || 0}<span className="text-lg">/100</span>
                   </p>
                 </div>
@@ -123,11 +105,14 @@ export default function StrategyPage() {
                 </div>
                 <div className="bg-gray-800 rounded-xl p-4 text-center">
                   <p className="text-gray-400 text-xs mb-1">Total Value</p>
-                  <p className="text-xl font-bold text-teal-400">
-                    ${strategy.total_value?.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </p>
+                  <p className="text-xl font-bold text-teal-400">{formatMoney(strategy.total_value)}</p>
                 </div>
               </div>
+              {(strategy.unpriced_tickers?.length ?? 0) > 0 && (
+                <p className="text-yellow-400 text-xs mb-3">
+                  Live prices unavailable for {strategy.unpriced_tickers!.join(", ")} — excluded from value and weights.
+                </p>
+              )}
               <p className="text-gray-200 mb-3">{strategy.portfolio_health?.summary}</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-red-950 border border-red-900 rounded-lg p-3">
@@ -146,11 +131,11 @@ export default function StrategyPage() {
               <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
                 <h2 className="text-lg font-bold text-white mb-4">Priority Actions</h2>
                 <div className="space-y-3">
-                  {strategy.priority_actions.map((action: any) => (
-                    <div key={action.rank} className="flex items-center gap-4 bg-gray-800 rounded-xl p-4">
+                  {strategy.priority_actions.map((action) => (
+                    <div key={`${action.rank}-${action.ticker}`} className="flex items-center gap-4 bg-gray-800 rounded-xl p-4">
                       <span className="text-gray-500 font-bold w-6">{action.rank}</span>
                       <span className="text-teal-400 font-bold w-16">{action.ticker}</span>
-                      <span className={`px-3 py-1 rounded-lg text-sm font-bold uppercase border ${getActionColor(action.action)}`}>{action.action}</span>
+                      <span className={`px-3 py-1 rounded-lg text-sm font-bold uppercase border ${actionColor(action.action)}`}>{action.action}</span>
                       <p className="text-gray-300 text-sm flex-1">{action.reason}</p>
                     </div>
                   ))}
@@ -162,19 +147,23 @@ export default function StrategyPage() {
             <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
               <h2 className="text-lg font-bold text-white mb-4">Position-by-Position Strategy</h2>
               <div className="space-y-4">
-                {strategy.positions?.map((pos: any) => (
+                {strategy.positions?.map((pos) => (
                   <div key={pos.ticker} className="bg-gray-800 rounded-xl p-5 border border-gray-700">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <span className="text-teal-400 font-bold text-xl">{pos.ticker}</span>
-                        <span className={`px-3 py-1 rounded-lg border text-sm font-bold uppercase ${getActionColor(pos.action)}`}>{pos.action}</span>
-                        <span className={`text-sm font-semibold ${getConcentrationColor(pos.concentration_flag)}`}>{pos.concentration_flag} concentration</span>
+                        <span className={`px-3 py-1 rounded-lg border text-sm font-bold uppercase ${actionColor(pos.action)}`}>{pos.action}</span>
+                        {pos.concentration_flag && (
+                          <span className={`text-sm font-semibold ${concentrationColor(pos.concentration_flag)}`}>{pos.concentration_flag} concentration</span>
+                        )}
                       </div>
                       <div className="text-right">
-                        <p className="text-white font-semibold">${pos.current_price?.toFixed(2)}</p>
-                        <p className={`text-sm ${(pos.gain_loss_pct || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                          {(pos.gain_loss_pct || 0) >= 0 ? "+" : ""}{pos.gain_loss_pct?.toFixed(2)}% vs cost
-                        </p>
+                        <p className="text-white font-semibold">{formatMoney(pos.current_price)}</p>
+                        {pos.gain_loss_pct !== null && pos.gain_loss_pct !== undefined && (
+                          <p className={`text-sm ${pos.gain_loss_pct >= 0 ? "text-green-400" : "text-red-400"}`}>
+                            {pos.gain_loss_pct >= 0 ? "+" : ""}{pos.gain_loss_pct.toFixed(2)}% vs cost
+                          </p>
+                        )}
                       </div>
                     </div>
                     <p className="text-gray-200 text-sm mb-3">{pos.reasoning}</p>
@@ -196,6 +185,12 @@ export default function StrategyPage() {
                 ))}
               </div>
             </div>
+
+            {(strategy.sources?.length ?? 0) > 0 && (
+              <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+                <SourceList sources={strategy.sources} />
+              </div>
+            )}
 
             <p className="text-gray-600 text-xs text-center pb-4">
               Informational only. Not personalized investment advice. Consult a qualified financial advisor before making investment decisions.

@@ -1,4 +1,14 @@
-import boto3
+"""
+One-off helper to request AWS Bedrock model access. NOT used by the app
+(the app calls Groq). Requires `pip install boto3` and AWS credentials.
+Run manually: python submit_usecase.py
+"""
+import sys
+
+try:
+    import boto3
+except ImportError:
+    sys.exit("boto3 is not installed. Run `pip install boto3` to use this script.")
 import base64
 import json
 
