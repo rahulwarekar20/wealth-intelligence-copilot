@@ -9,7 +9,6 @@ Results containing "error" mean the AI failed and should be reported as such.
 """
 import logging
 import re
-import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 from sqlalchemy.orm import Session, sessionmaker
@@ -21,9 +20,8 @@ from app.agents.retirement_agent import run_retirement_analysis
 from app.agents.portfolio_strategy_agent import run_portfolio_strategy
 from app.models.models import Decision
 from app.repositories.portfolio_repository import get_holdings
-from app.services.alert_service import add_alert
-from app.services.history_service import STRATEGY_TICKER, describe_changes, latest_strategy, strategy_changes
 from app.services.portfolio_service import fetch_current_price
+from app.services.strategy_service import get_or_run_strategy, save_strategy  # noqa: F401 -- save_strategy re-exported
 
 logger = logging.getLogger("wealth-copilot.ask")
 
@@ -84,34 +82,6 @@ def _save_recommendation(db: Session, user_id: str, ticker: str, query: str, rec
     return str(decision.id)
 
 
-def save_strategy(db: Session, user_id: str, result: dict) -> None:
-    """
-    Journals a portfolio-wide strategy result. First compares it with the
-    previous strategy: the differences are attached as result["changes"] (shown
-    as "since your last analysis"), and an alert is raised if any call changed.
-    """
-    if not result.get("positions"):
-        return
-    previous = latest_strategy(db, user_id)
-    changes = strategy_changes(previous.recommendation_json if previous else None, result,
-                               previous.created_at if previous else None)
-    result["changes"] = changes
-    if changes and (message := describe_changes(changes)):
-        add_alert(db, user_id, "strategy_change", message, f"strategy:{result.get('generated_at') or uuid.uuid4()}")
-
-    health = result.get("portfolio_health") or {}
-    db.add(Decision(
-        user_id=user_id,
-        ticker=STRATEGY_TICKER,
-        query_text="Portfolio-wide strategy analysis",
-        recommendation_json=result,
-        confidence=(health.get("overall_score") or 0) / 100,
-        evidence_diversity_score=0.8,
-        prompt_version="v1"
-    ))
-    db.commit()
-
-
 def _recommendation_ok(rec: dict) -> bool:
     """True if the agents produced a usable recommendation (an action and no error)."""
     return bool(rec) and not rec.get("error") and bool(rec.get("action"))
@@ -170,12 +140,12 @@ def answer_question(
 
     # ── Whole portfolio ─────────────────────────────────────────────────────
     if intent == "portfolio_wide" and not ticker:
-        result = run_portfolio_strategy(db=db, user_id=user_id)
+        # Reuses a recent strategy when nothing has changed (see strategy_service)
+        result = get_or_run_strategy(db, user_id, runner=run_portfolio_strategy)
         if result.get("no_holdings"):
             return {"route": "clarify", "message": "You don't have any holdings yet. Add some on the Dashboard first."}
         if result.get("error"):
             return {"error": result["error"]}
-        save_strategy(db, user_id, result)
         return {"route": "strategy", **result}
 
     # ── Retirement ──────────────────────────────────────────────────────────

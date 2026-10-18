@@ -63,7 +63,12 @@ export default function ChatPage() {
           <div className={`${GUTTER} space-y-6 py-8`}>
             {messages.map((msg, i) => (
               <div key={i} className="space-y-6">
-                <MessageBubble message={msg} interrupted={interrupted} />
+                <MessageBubble
+                  message={msg}
+                  interrupted={interrupted}
+                  // Only the latest message can be retried, and not while another answer is loading
+                  onRetry={i === messages.length - 1 && !loading ? (q) => ask(q, true) : undefined}
+                />
                 {/* Starter questions stay under the greeting for the whole conversation */}
                 {i === 0 && <StarterQuestions onAsk={ask} disabled={loading} />}
               </div>

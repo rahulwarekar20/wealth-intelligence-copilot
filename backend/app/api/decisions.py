@@ -10,7 +10,8 @@ from pydantic import BaseModel, Field
 from app.core.db import get_db
 from app.core.security import get_current_user_id
 from app.models.models import Decision
-from app.services.ask_service import answer_question, save_strategy
+from app.services.ask_service import answer_question
+from app.services.strategy_service import get_or_run_strategy
 from app.services.history_service import track_record
 
 router = APIRouter(prefix="/decisions", tags=["decisions"])
@@ -126,23 +127,22 @@ def get_journal(
 
 @router.get("/portfolio-strategy")
 def portfolio_strategy(
+    refresh: bool = False,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
     """
-    Analyses ALL portfolio positions simultaneously and returns
-    a buy/sell/hold strategy for every holding plus overall
-    portfolio health assessment.
+    A buy/sell/hold strategy for every holding plus an overall portfolio
+    health assessment. Returns the saved strategy from the last 30 minutes
+    ("reused": true) when holdings, profile and other assets are unchanged;
+    ?refresh=true always runs a new analysis.
     """
     from app.agents.portfolio_strategy_agent import run_portfolio_strategy
 
-    result = run_portfolio_strategy(db=db, user_id=user_id)
-
+    result = get_or_run_strategy(db, user_id, runner=run_portfolio_strategy, refresh=refresh)
     if result.get("no_holdings"):
         return result
-    _respond(result)
-    save_strategy(db, user_id, result)
-    return result
+    return _respond(result)
 
 
 @router.post("/retirement")

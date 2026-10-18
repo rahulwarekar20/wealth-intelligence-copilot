@@ -95,3 +95,10 @@ def db_session(client):
 def user_id(auth_client):
     """Id of the user that auth_client is signed in as."""
     return auth_client.get("/auth/me").json()["id"]
+
+
+@pytest.fixture(autouse=True)
+def no_filing_prewarm(monkeypatch):
+    """Tests never start the background 10-K pre-loading (it would call SEC EDGAR)."""
+    from app.services import strategy_service
+    monkeypatch.setattr(strategy_service, "prewarm_filings", lambda tickers, make_session: None)

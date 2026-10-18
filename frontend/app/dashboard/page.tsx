@@ -46,7 +46,8 @@ export default function DashboardPage() {
   const firstRun = portfolio === null;
   useEffect(() => {
     if (strategy || running || strategyError) return;
-    const timer = setTimeout(runStrategy, firstRun ? 0 : AUTO_RUN_DELAY_MS);
+    // Automatic loads may reuse a recent strategy (server-side); Refresh forces a new one
+    const timer = setTimeout(() => runStrategy(), firstRun ? 0 : AUTO_RUN_DELAY_MS);
     return () => clearTimeout(timer);
   }, [firstRun, strategy, running, strategyError, runStrategy]);
 
@@ -120,7 +121,7 @@ export default function DashboardPage() {
                   running={running}
                   error={strategyError}
                   hasHoldings={hasHoldings}
-                  onRun={() => runStrategy()}
+                  onRun={() => runStrategy(true)}
                 />
                 {health && <RiskOpportunity risk={health.top_risk} opportunity={health.top_opportunity} />}
               </div>

@@ -63,7 +63,7 @@ export default function ReportPage() {
   // Make sure there is a strategy to include
   useEffect(() => {
     if (strategy || running || strategyError) return;
-    const timer = setTimeout(run, 0);
+    const timer = setTimeout(() => run(), 0);
     return () => clearTimeout(timer);
   }, [strategy, running, strategyError, run]);
 

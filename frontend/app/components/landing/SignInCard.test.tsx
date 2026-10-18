@@ -11,6 +11,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 const login = vi.fn();
 const signup = vi.fn();
 vi.mock("@/lib/api", () => ({
+  LOGOUT_REASON_KEY: "logout_reason",
   login: (...args: unknown[]) => login(...args),
   signup: (...args: unknown[]) => signup(...args),
   getErrorMessage: (_err: unknown, fallback: string) => fallback,
@@ -70,5 +71,19 @@ describe("SignInCard", () => {
     await user.click(screen.getByRole("button", { name: /demo account/i }));
     expect(screen.getByLabelText("Email")).toHaveValue("test@example.com");
     expect(screen.getByLabelText("Password")).toHaveValue("testpass123");
+  });
+});
+
+describe("SignInCard after an expired session", () => {
+  it("explains the session expired, once", async () => {
+    localStorage.setItem("logout_reason", "expired");
+    renderCard();
+    expect(await screen.findByText(/session expired/i)).toBeInTheDocument();
+    expect(localStorage.getItem("logout_reason")).toBeNull();
+  });
+
+  it("shows no message after a normal sign-out", () => {
+    renderCard();
+    expect(screen.queryByText(/session expired/i)).not.toBeInTheDocument();
   });
 });
