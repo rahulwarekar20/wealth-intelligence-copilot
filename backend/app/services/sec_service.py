@@ -58,14 +58,17 @@ _sections_cache: dict = {}  # accession -> {"risk_factors": str, "mdna": str}
 
 
 class SECError(Exception):
+    """SEC EDGAR refused the request or doesn't have the data."""
     pass
 
 
 def _headers() -> dict:
+    """Request headers SEC EDGAR requires (a descriptive User-Agent with contact email)."""
     return {"User-Agent": settings.SEC_USER_AGENT, "Accept-Encoding": "gzip, deflate"}
 
 
 def _get(url: str, timeout: float = 20.0) -> httpx.Response:
+    """GET from SEC EDGAR, turning 403/404 into SECError with a helpful message."""
     response = httpx.get(url, headers=_headers(), timeout=timeout, follow_redirects=True)
     if response.status_code == 403:
         raise SECError("SEC rejected the request -- set SEC_USER_AGENT to 'AppName your@email.com'")
@@ -92,6 +95,7 @@ def lookup_cik(ticker: str) -> Optional[str]:
 # ── Financial facts ──────────────────────────────────────────────────────────
 
 def _days(start: str, end: str) -> int:
+    """Days between two ISO dates."""
     return (date.fromisoformat(end) - date.fromisoformat(start)).days
 
 
@@ -142,6 +146,7 @@ def extract_annual_financials(facts: dict, years: int = YEARS) -> dict:
 
 
 def _latest_filings(submissions: dict, cik: str) -> dict:
+    """The most recent 10-K and 10-Q in a company's submissions, with links to the documents."""
     recent = submissions.get("filings", {}).get("recent", {})
     found = {}
     for i, form in enumerate(recent.get("form", [])):
@@ -197,28 +202,33 @@ class _TextExtractor(HTMLParser):
     SKIP = {"script", "style", "ix:header", "head"}
 
     def __init__(self):
+        """Starts with no collected text and not inside a skipped tag."""
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
         self.skip_depth = 0
 
     def handle_starttag(self, tag, attrs):
+        """Enters a skipped tag (head, script, style, XBRL header) or starts a new line for block tags."""
         if tag in self.SKIP:
             self.skip_depth += 1
         elif tag in self.BLOCK:
             self.parts.append("\n")
 
     def handle_endtag(self, tag):
+        """Leaves a skipped tag or ends the line for block tags."""
         if tag in self.SKIP:
             self.skip_depth = max(0, self.skip_depth - 1)
         elif tag in self.BLOCK:
             self.parts.append("\n")
 
     def handle_data(self, data):
+        """Collects visible text (ignored inside skipped tags)."""
         if not self.skip_depth:
             self.parts.append(data)
 
 
 def html_to_text(html: str) -> str:
+    """Readable plain text from filing HTML: <head>, scripts, styles and hidden XBRL headers dropped; block tags become line breaks."""
     parser = _TextExtractor()
     parser.feed(html)
     text = "".join(parser.parts).replace("\xa0", " ")
@@ -302,6 +312,7 @@ def relevant_passages(section_text: str, query: str, limit: int = 3, max_chars: 
 # ── Formatting for prompts ───────────────────────────────────────────────────
 
 def _fmt_money(v: float) -> str:
+    """$1.2B / $340.5M / $12,345 style money formatting."""
     sign = "-" if v < 0 else ""
     v = abs(v)
     if v >= 1e9:

@@ -1,3 +1,9 @@
+"""
+FastAPI application: lifespan setup (create missing tables, preload the SEC
+ticker list, log configuration issues), CORS, security headers, routers, and
+the /health check.
+"""
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +12,8 @@ from app.api import portfolio
 from app.api import evidence
 from app.api import decisions
 from app.api import documents
+from app.api import profile
+from app.api import alerts
 from app.core.config import settings
 from app.core.startup import check_production_readiness
 import logging
@@ -20,6 +28,7 @@ logger = logging.getLogger("wealth-copilot")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Startup: create missing tables, preload the SEC ticker list in the background, log configuration issues."""
     # Create any tables that don't exist yet (e.g. "documents" on an older
     # database). Existing tables are never altered or dropped.
     from app.core.db import Base, engine
@@ -31,6 +40,7 @@ async def lifespan(app: FastAPI):
 
     # Preload the SEC ticker list in the background so the first question isn't slower
     def warm_sec_cache():
+        """Loads the SEC ticker→CIK list once so the first question isn't slowed down."""
         try:
             from app.services.sec_service import lookup_cik
             lookup_cik("AAPL")
@@ -67,6 +77,7 @@ app.add_middleware(
 # ── Security Headers Middleware ──────────────────────────────────
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
+    """Adds standard security headers to every response (HSTS only over HTTPS)."""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -84,8 +95,11 @@ app.include_router(portfolio.router)
 app.include_router(evidence.router)
 app.include_router(decisions.router)
 app.include_router(documents.router)
+app.include_router(profile.router)
+app.include_router(alerts.router)
 
 
 @app.get("/health")
 def health():
+    """Liveness check for load balancers and uptime monitors."""
     return {"status": "ok", "service": "wealth-copilot-backend", "version": "0.1.0"}

@@ -1,3 +1,6 @@
+/**
+ * Tab-scoped state (chat, strategy) that survives navigating between pages.
+ */
 import { useCallback, useSyncExternalStore } from "react";
 
 // Values persisted in sessionStorage for the current browser tab, exposed to
@@ -10,11 +13,13 @@ const listeners = new Map<string, Set<() => void>>();
 const parsedCache = new Map<string, { raw: string; value: unknown }>();
 
 function readRaw(key: string): string | null {
+  // sessionStorage is the source of truth; the memory copy is only a fallback
+  // for browsers where sessionStorage is unavailable (it throws)
   try {
-    const raw = sessionStorage.getItem(key);
-    if (raw !== null) return raw;
-  } catch {}
-  return memory.get(key) ?? null;
+    return sessionStorage.getItem(key);
+  } catch {
+    return memory.get(key) ?? null;
+  }
 }
 
 function writeRaw(key: string, raw: string | null) {
@@ -41,12 +46,14 @@ function readValue<T>(key: string, initial: T): T {
   }
 }
 
+/** Resets the in-memory copies and re-renders their components; callers clear sessionStorage itself (login/logout). */
 export function clearSessionStore() {
   memory.clear();
   parsedCache.clear();
   listeners.forEach((set) => set.forEach((notify) => notify()));
 }
 
+/** Forgets one stored value and notifies components using it. */
 export function removeSessionValue(key: string) {
   writeRaw(key, null);
 }

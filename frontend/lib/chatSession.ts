@@ -1,4 +1,11 @@
-import type { ChatTurn, PortfolioStrategy, RetirementResult, TickerRecommendation } from "./types";
+/**
+ * Chat history helpers: turn structured answers back into text so follow-up
+ * questions keep their context when sent to the backend.
+ */
+import type { AskResponse, ChatTurn, PortfolioStrategy, RetirementResult, TickerRecommendation } from "./types";
+
+/** A structured copilot answer (everything except a clarifying question). */
+export type CopilotAnswer = Exclude<AskResponse, { route: "clarify" }>;
 
 // The backend accepts at most 4000 characters per history message
 const MAX_HISTORY_CHARS = 2000;
@@ -20,10 +27,12 @@ export function recommendationToText(r: TickerRecommendation | undefined): strin
   return `[${r.ticker}] ${(r.action || "").toUpperCase()} — ${r.summary || ""}`.trim();
 }
 
+/** One line per compared stock. */
 export function comparisonToText(results: TickerRecommendation[] | undefined): string {
   return (results || []).map(recommendationToText).join("\n");
 }
 
+/** Health score, summary and each position's action, on one line. */
 export function strategyToText(s: PortfolioStrategy | undefined): string {
   if (!s) return "";
   const positions = (s.positions || []).map((p) => `${p.ticker}: ${p.action}`).join(", ");
@@ -36,4 +45,14 @@ export function toHistory(turns: ChatTurn[], limit: number): ChatTurn[] {
     .filter((t) => t.content)
     .map((t) => ({ role: t.role, content: t.content.slice(0, MAX_HISTORY_CHARS) }))
     .slice(-limit);
+}
+
+/** Plain-text version of any structured answer, for the conversation history. */
+export function answerToText(answer: CopilotAnswer): string {
+  switch (answer.route) {
+    case "recommendation": return recommendationToText(answer);
+    case "comparison": return comparisonToText(answer.results);
+    case "strategy": return strategyToText(answer);
+    case "retirement": return retirementToText(answer);
+  }
 }

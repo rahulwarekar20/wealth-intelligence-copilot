@@ -7,4 +7,5 @@ from app.agents.llm_client import invoke_llm, LLMError, parse_json_response  # n
 
 
 def invoke_claude(system_prompt: str, user_prompt: str, max_tokens: int = 1024, use_haiku: bool = False) -> str:
+    """Old name for invoke_llm; `use_haiku` selects the smaller model."""
     return invoke_llm(system_prompt, user_prompt, max_tokens=max_tokens, use_small_model=use_haiku)

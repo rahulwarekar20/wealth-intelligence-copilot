@@ -1,3 +1,5 @@
+"""Document endpoints: upload (PDF/TXT/CSV), list and delete the user's private documents."""
+
 import uuid
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
@@ -15,6 +17,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 def _document_out(doc) -> dict:
+    """API view of a stored document (size in KB, no text content)."""
     return {
         "id": str(doc.id),
         "filename": doc.filename,
@@ -31,6 +34,7 @@ async def upload_document(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
+    """Stores an uploaded PDF/TXT/CSV (max 5 MB) for the current user; 413 if too large, 400 if unreadable."""
     # Read at most one byte past the limit so oversized files are rejected
     # without loading them fully into memory
     data = await file.read(MAX_UPLOAD_BYTES + 1)
@@ -52,6 +56,7 @@ def get_documents(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
+    """Lists the current user's documents, newest first."""
     return {"documents": [_document_out(d) for d in list_documents(db, user_id)]}
 
 
@@ -61,6 +66,7 @@ def remove_document(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
+    """Deletes one of the current user's documents; 404 if it isn't theirs or doesn't exist."""
     try:
         uuid.UUID(document_id)
     except ValueError:

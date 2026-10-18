@@ -1,266 +1,82 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import PageLayout from "../components/PageLayout";
-import RecommendationCard from "../components/RecommendationCard";
-import RetirementCard from "../components/RetirementCard";
-import StrategyCard from "../components/StrategyCard";
-import { askCopilot, getErrorMessage } from "@/lib/api";
-import { useSessionState } from "@/lib/sessionStore";
-import {
-  comparisonToText,
-  recommendationToText,
-  retirementToText,
-  strategyToText,
-  toHistory,
-} from "@/lib/chatSession";
+/**
+ * Ask Copilot ("/chat"): one conversation for stock, portfolio and retirement
+ * questions. Conversation state lives in useChat; the pieces of the screen are
+ * in components/chat/. A `?ask=` URL parameter pre-fills the question box
+ * (used by the "Ask the copilot" links on alerts).
+ */
+import { useEffect, useRef, useState } from "react";
+import ChatInput from "../components/chat/ChatInput";
+import MessageBubble from "../components/chat/MessageBubble";
+import StarterQuestions from "../components/chat/StarterQuestions";
+import PageLayout from "../components/layout/PageLayout";
+import { useChat } from "@/lib/useChat";
 import { useRequireAuth } from "@/lib/useRequireAuth";
-import type { AskResponse } from "@/lib/types";
 
-type Answer = Exclude<AskResponse, { route: "clarify" }>;
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  answer?: Answer;
-  pending?: boolean;
-}
-
-const INITIAL_MESSAGES: Message[] = [
-  {
-    role: "assistant",
-    content:
-      "Hello! I am your Wealth Intelligence Copilot. Ask me anything about a stock, your whole portfolio, or your retirement plans — just type naturally.",
-  },
-];
-
-const STARTER_QUESTIONS: { label: string; questions: string[] }[] = [
-  {
-    label: "Stocks",
-    questions: ["Should I buy more Apple?", "Is my MSFT position too large?", "AAPL or GOOGL — which looks stronger?"],
-  },
-  {
-    label: "Portfolio",
-    questions: ["How healthy is my whole portfolio?", "What should I rebalance first?"],
-  },
-  {
-    label: "Retirement",
-    questions: ["Can I retire at 60 with my current portfolio?", "How much more should I save to retire in 20 years?"],
-  },
-];
-
-function answerToText(answer: Answer): string {
-  switch (answer.route) {
-    case "recommendation": return recommendationToText(answer);
-    case "comparison": return comparisonToText(answer.results);
-    case "strategy": return strategyToText(answer);
-    case "retirement": return retirementToText(answer);
-  }
-}
-
-function AnswerView({ answer }: { answer: Answer }) {
-  switch (answer.route) {
-    case "recommendation":
-      return (
-        <div className="w-full space-y-2">
-          <RecommendationCard rec={answer} />
-          {answer.note && <p className="text-yellow-400 text-xs">{answer.note}</p>}
-        </div>
-      );
-    case "comparison":
-      return (
-        <div className="w-full space-y-3">
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
-            <p className="text-gray-500 text-xs uppercase tracking-wide mb-1.5">
-              Comparing {answer.results.map((r) => r.ticker).join(" vs ")}
-            </p>
-            <p className="text-[15px] leading-relaxed text-gray-100">
-              {answer.verdict || "See each stock's analysis below."}
-            </p>
-          </div>
-          <div className={`grid gap-3 ${answer.results.length >= 3 ? "lg:grid-cols-3" : "md:grid-cols-2"}`}>
-            {answer.results.map((r) => (
-              <RecommendationCard key={r.ticker} rec={r} compact preferred={answer.preferred === r.ticker} />
-            ))}
-          </div>
-          {answer.note && <p className="text-yellow-400 text-xs">{answer.note}</p>}
-          <p className="text-gray-600 text-[11px]">{answer.results[0]?.disclosure}</p>
-        </div>
-      );
-    case "strategy":
-      return <StrategyCard strategy={answer} />;
-    case "retirement":
-      return <RetirementCard result={answer} />;
-  }
-}
-
-/** Waiting indicator with an elapsed-seconds counter, so a long analysis doesn't look stuck. */
-function PendingBubble() {
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    const started = Date.now();
-    const id = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <div className="flex items-center gap-3 rounded-2xl bg-gray-800 px-4 py-3 text-sm text-gray-300">
-      <span className="flex gap-1">
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-400 [animation-delay:-0.3s]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-400 [animation-delay:-0.15s]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-400" />
-      </span>
-      <span>
-        Analysing — reading filings, market data and your portfolio
-        <span className="ml-2 tabular-nums text-gray-500">{seconds}s</span>
-      </span>
-    </div>
-  );
-}
+// Same side margins as PageContainer, so the chat lines up with other pages
+const GUTTER = "w-full max-w-[1760px] px-4 sm:px-8 xl:px-12";
 
 export default function ChatPage() {
   useRequireAuth();
-  const [messages, setMessages, resetMessages] = useSessionState<Message[]>("chat_messages", INITIAL_MESSAGES);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { messages, ask, reset, loading, interrupted } = useChat();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [suggested, setSuggested] = useState("");
 
+  // Pick up a suggested question from the URL once, then tidy the URL
+  useEffect(() => {
+    const ask = new URLSearchParams(window.location.search).get("ask");
+    if (!ask) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the URL once on mount
+    setSuggested(ask.slice(0, 2000));
+    window.history.replaceState(null, "", "/chat");
+  }, []);
+
+  // Keep the newest message in view
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const ask = async (question: string) => {
-    const query = question.trim();
-    if (!query || loading) return;
-
-    // Structured answers are converted to text so the backend keeps the context
-    // (e.g. which stock "it" refers to, or the age/income already given)
-    const history = toHistory(
-      messages.slice(1).filter((m) => !m.pending).map((m) => ({
-        role: m.role,
-        content: m.answer ? answerToText(m.answer) : m.content,
-      })),
-      12
-    );
-
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: query },
-      { role: "assistant", content: "", pending: true },
-    ]);
-    setInput("");
-    setLoading(true);
-
-    try {
-      const data = await askCopilot(query, history);
-      const reply: Message =
-        data.route === "clarify"
-          ? { role: "assistant", content: data.message }
-          : { role: "assistant", content: "", answer: data };
-      setMessages((prev) => [...prev.filter((m) => !m.pending), reply]);
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev.filter((m) => !m.pending),
-        { role: "assistant", content: getErrorMessage(err) },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const showStarters = messages.length === 1;
-
   return (
     <PageLayout>
-      <div className="flex flex-col h-screen">
+      {/* Fills the screen below the mobile top bar (3.6rem), or the whole screen on desktop */}
+      <div className="flex h-[calc(100dvh-3.6rem)] flex-col lg:h-screen">
 
-        <div className="px-8 py-5 border-b border-gray-800 flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">AI Copilot Chat</h1>
-            <p className="text-gray-400 text-sm mt-0.5">
-              Stocks · Full portfolio · Retirement planning
-            </p>
+        {/* Header */}
+        <div className="border-b border-paper-300 bg-paper-50/70 backdrop-blur-sm">
+          <div className={`${GUTTER} flex items-end justify-between gap-3 py-4 sm:py-6`}>
+            <div>
+              <p className="eyebrow text-gold-500">Ask Copilot</p>
+              <h1 className="mt-1 font-display text-2xl font-medium tracking-tight text-ink-900 sm:text-3xl">
+                Ask anything, <span className="italic text-gold-500">get evidence</span>
+              </h1>
+              <p className="mt-1 text-sm text-ink-600">Stocks · Full portfolio · Retirement planning</p>
+            </div>
+            <button onClick={reset} disabled={loading} className="btn-secondary px-3.5 py-2 text-sm">
+              New chat
+            </button>
           </div>
-          <button
-            onClick={resetMessages}
-            disabled={loading}
-            className="px-3 py-1.5 text-xs text-gray-400 border border-gray-700 rounded-lg hover:text-white hover:border-gray-500 transition disabled:opacity-50"
-          >
-            New chat
-          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-8 py-6">
-         <div className="mx-auto w-full max-w-5xl space-y-6">
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              {msg.answer ? (
-                <AnswerView answer={msg.answer} />
-              ) : msg.pending ? (
-                <PendingBubble />
-              ) : (
-                <div className={`px-4 py-3 rounded-2xl whitespace-pre-line text-[15px] leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-teal-600 text-white max-w-[75%]"
-                    : "bg-gray-800 text-gray-100 max-w-3xl"
-                }`}>
-                  {msg.content}
-                </div>
-              )}
-            </div>
-          ))}
-
-          {/* Starter questions on an empty chat */}
-          {showStarters && (
-            <div className="space-y-4">
-              {STARTER_QUESTIONS.map((group) => (
-                <div key={group.label}>
-                  <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2">{group.label}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {group.questions.map((q) => (
-                      <button
-                        key={q}
-                        onClick={() => ask(q)}
-                        disabled={loading}
-                        className="px-3 py-2 bg-gray-900 border border-gray-700 hover:border-teal-500 hover:text-white text-gray-300 text-sm rounded-xl transition disabled:opacity-50"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <div ref={bottomRef} />
-         </div>
+        {/* Conversation */}
+        <div className="flex-1 overflow-y-auto">
+          <div className={`${GUTTER} space-y-6 py-8`}>
+            {messages.map((msg, i) => (
+              <div key={i} className="space-y-6">
+                <MessageBubble message={msg} interrupted={interrupted} />
+                {/* Starter questions stay under the greeting for the whole conversation */}
+                {i === 0 && <StarterQuestions onAsk={ask} disabled={loading} />}
+              </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
         </div>
 
         {/* Input bar */}
-        <div className="px-8 py-4 border-t border-gray-800 bg-gray-900">
-         <div className="mx-auto w-full max-w-5xl">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && ask(input)}
-              placeholder="e.g. Should I trim my SPY position? · How healthy is my portfolio? · Can I retire at 60?"
-              maxLength={2000}
-              className="flex-1 px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:outline-none focus:border-teal-400 text-sm"
-              disabled={loading}
-            />
-            <button
-              onClick={() => ask(input)}
-              disabled={loading || !input.trim()}
-              className="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white font-semibold rounded-xl transition disabled:opacity-50 text-sm"
-            >
-              {loading ? "..." : "Ask"}
-            </button>
+        <div className="border-t border-paper-300 bg-paper-50/80 backdrop-blur-sm">
+          <div className={`${GUTTER} py-5`}>
+            <ChatInput key={suggested} onAsk={ask} loading={loading} initialValue={suggested} />
           </div>
-          <p className="text-gray-600 text-xs mt-2">
-            Mention a company or ticker for stock analysis — compare up to 3 at once. Informational only, not investment advice.
-          </p>
-         </div>
         </div>
       </div>
     </PageLayout>

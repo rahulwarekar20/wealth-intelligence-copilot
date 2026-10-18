@@ -9,6 +9,7 @@ Results containing "error" mean the AI failed and should be reported as such.
 """
 import logging
 import re
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,6 +21,8 @@ from app.agents.retirement_agent import run_retirement_analysis
 from app.agents.portfolio_strategy_agent import run_portfolio_strategy
 from app.models.models import Decision
 from app.repositories.portfolio_repository import get_holdings
+from app.services.alert_service import add_alert
+from app.services.history_service import STRATEGY_TICKER, describe_changes, latest_strategy, strategy_changes
 from app.services.portfolio_service import fetch_current_price
 
 logger = logging.getLogger("wealth-copilot.ask")
@@ -59,11 +62,13 @@ def _explicit_tickers(query: str, held: set[str]) -> list[str]:
 
 
 def _is_real_ticker(ticker: str, held: set[str]) -> bool:
+    """Held tickers are trusted; anything else must have a live market price."""
     # Held tickers are trusted; anything else must have a live market price
     return ticker in held or fetch_current_price(ticker) is not None
 
 
 def _save_recommendation(db: Session, user_id: str, ticker: str, query: str, rec: dict) -> str:
+    """Journals a single-stock recommendation and returns the new decision id."""
     decision = Decision(
         user_id=user_id,
         ticker=ticker,
@@ -80,13 +85,24 @@ def _save_recommendation(db: Session, user_id: str, ticker: str, query: str, rec
 
 
 def save_strategy(db: Session, user_id: str, result: dict) -> None:
-    """Journals a portfolio-wide strategy result."""
+    """
+    Journals a portfolio-wide strategy result. First compares it with the
+    previous strategy: the differences are attached as result["changes"] (shown
+    as "since your last analysis"), and an alert is raised if any call changed.
+    """
     if not result.get("positions"):
         return
+    previous = latest_strategy(db, user_id)
+    changes = strategy_changes(previous.recommendation_json if previous else None, result,
+                               previous.created_at if previous else None)
+    result["changes"] = changes
+    if changes and (message := describe_changes(changes)):
+        add_alert(db, user_id, "strategy_change", message, f"strategy:{result.get('generated_at') or uuid.uuid4()}")
+
     health = result.get("portfolio_health") or {}
     db.add(Decision(
         user_id=user_id,
-        ticker="PORTFOLIO",
+        ticker=STRATEGY_TICKER,
         query_text="Portfolio-wide strategy analysis",
         recommendation_json=result,
         confidence=(health.get("overall_score") or 0) / 100,
@@ -97,6 +113,7 @@ def save_strategy(db: Session, user_id: str, result: dict) -> None:
 
 
 def _recommendation_ok(rec: dict) -> bool:
+    """True if the agents produced a usable recommendation (an action and no error)."""
     return bool(rec) and not rec.get("error") and bool(rec.get("action"))
 
 
@@ -111,6 +128,7 @@ def _analyse_tickers(query: str, tickers: list[str], intent: str, agents: list, 
     all_agents = ["portfolio_agent", "evidence_agent", "market_data_agent"]
 
     def run_one(ticker: str) -> dict:
+        """Analyses one stock of a comparison on its own DB session (runs in a thread)."""
         worker_db = WorkerSession()
         # Each card describes its own stock; the head-to-head verdict is composed afterwards
         focused = (f"{query}\n(This is one part of a comparison of {', '.join(tickers)}. "
@@ -134,6 +152,13 @@ def answer_question(
     db: Session,
     ticker: Optional[str] = None,
 ) -> dict:
+    """
+    Entry point for POST /decisions/ask: classifies the question and routes it.
+
+    Returns a dict whose "route" says what kind of answer it is: "strategy",
+    "retirement", "recommendation", "comparison", or "clarify" (a question back
+    to the user). Returns {"error": ...} when the AI failed.
+    """
     held = {h.ticker for h in get_holdings(db, user_id)}
     explicit = [ticker.upper()] if ticker else _explicit_tickers(query, held)
 

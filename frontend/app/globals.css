@@ -1,23 +1,100 @@
+/*
+ * Design system — "private ledger"
+ * Warm paper surfaces, deep ink type, gold foil accents and muted
+ * fern / brick / harbor signal colours. Light-only by design.
+ *
+ * Contents, top to bottom:
+ *   @theme             colour palette, shadows and fonts (become Tailwind classes,
+ *                      e.g. --color-ink-900 → text-ink-900, bg-ink-900)
+ *   body               paper background with a faint grain texture
+ *   @layer components  shared classes: card, card-inset, eyebrow, btn-primary,
+ *                      btn-secondary, field, link, ornament
+ *   animations         animate-rise (entrance) and skeleton (loading shimmer)
+ * Chart colours live in lib/charts.ts, not here.
+ */
 @import "tailwindcss";
 
-:root {
-  --background: #030712;
-  --foreground: #e5e7eb;
+@theme {
+  --color-paper-50: #fdfaf2;
+  --color-paper-100: #fbf6ec;
+  --color-paper-200: #f3ead8;
+  --color-paper-300: #e9dcc2;
+  --color-paper-400: #d8c7a6;
+
+  --color-ink-400: #a99a87;
+  --color-ink-500: #8a7a69;
+  --color-ink-600: #6b5d4f;
+  --color-ink-700: #3d3530;
+  --color-ink-800: #2b2420;
+  --color-ink-900: #241e1a;
+  --color-ink-950: #1c1712;
+
+  --color-gold-50: #fbf5e6;
+  --color-gold-100: #f5e9cc;
+  --color-gold-200: #e8d19a;
+  --color-gold-300: #d8b25e;
+  --color-gold-400: #c8912f;
+  --color-gold-500: #a8781f;
+  --color-gold-600: #86601a;
+  --color-gold-700: #6a4b14;
+
+  --color-fern-50: #ebf1e9;
+  --color-fern-100: #dce7da;
+  --color-fern-200: #b9cdb5;
+  --color-fern-300: #8fb09a;
+  --color-fern-400: #5f8d6e;
+  --color-fern-500: #3e6b4f;
+  --color-fern-600: #2f5540;
+  --color-fern-700: #234030;
+
+  --color-brick-50: #fbeeea;
+  --color-brick-100: #f3d9d2;
+  --color-brick-200: #e6b3a6;
+  --color-brick-300: #d4826f;
+  --color-brick-400: #c15544;
+  --color-brick-500: #b23a2e;
+  --color-brick-600: #8f2c22;
+  --color-brick-700: #6e201a;
+
+  --color-harbor-50: #eaf0f4;
+  --color-harbor-100: #d6e2ea;
+  --color-harbor-200: #b8cbd8;
+  --color-harbor-500: #3d6680;
+  --color-harbor-600: #2f5670;
+  --color-harbor-700: #24445a;
+
+  --shadow-card: 0 1px 2px #2b242014, 0 6px 16px -8px #2b24202e;
+  --shadow-book: 0 22px 48px -12px #2b242040, 0 2px 6px #2b24201a;
+  --shadow-foil: 0 0 0 1px #c8912f59, 0 6px 18px -6px #a8781f59;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, "Times New Roman", serif;
+}
+
+:root {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  /* Use the Geist font loaded in layout.tsx (it was being overridden by Arial) */
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--color-paper-100);
+  background-image:
+    radial-gradient(120% 90% at 50% -10%, #fefcf6 0%, var(--color-paper-100) 55%, var(--color-paper-200) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  background-attachment: fixed, fixed;
+  color: var(--color-ink-800);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-gold-100);
+  color: var(--color-ink-900);
 }
 
 /* Hide the default disclosure triangle; cards draw their own chevron */
@@ -26,4 +103,171 @@ summary::-webkit-details-marker {
 }
 summary {
   list-style: none;
+}
+
+@layer components {
+  /* Surface with a faint inner rule, like a bound page */
+  .card {
+    background: var(--color-paper-50);
+    border: 1px solid var(--color-paper-300);
+    border-radius: 1rem;
+    box-shadow:
+      var(--shadow-card),
+      inset 0 0 0 3px var(--color-paper-50),
+      inset 0 0 0 4px #f3ead8b3;
+  }
+  .card-inset {
+    background: var(--color-paper-100);
+    border: 1px solid var(--color-paper-200);
+    border-radius: 0.75rem;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-500);
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: var(--color-ink-900);
+    color: var(--color-paper-50);
+    font-weight: 600;
+    border-radius: 0.625rem;
+    box-shadow: 0 1px 0 #ffffff1f inset, 0 4px 12px -4px #241e1a66;
+    transition: background 0.16s, transform 0.16s, box-shadow 0.16s;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-ink-700);
+    transform: translateY(-1px);
+  }
+  .btn-primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: var(--color-paper-50);
+    color: var(--color-ink-700);
+    font-weight: 500;
+    border: 1px solid var(--color-paper-400);
+    border-radius: 0.625rem;
+    transition: border-color 0.16s, color 0.16s, background 0.16s;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--color-gold-400);
+    color: var(--color-ink-900);
+    background: #fff;
+  }
+  .btn-secondary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .field {
+    width: 100%;
+    background: #fffdf8;
+    color: var(--color-ink-900);
+    border: 1px solid var(--color-paper-400);
+    border-radius: 0.625rem;
+    transition: border-color 0.16s, box-shadow 0.16s;
+  }
+  .field::placeholder {
+    color: var(--color-ink-400);
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--color-gold-400);
+    box-shadow: 0 0 0 3px var(--color-gold-100);
+  }
+
+  .link {
+    color: var(--color-fern-600);
+    text-decoration: underline;
+    text-decoration-color: var(--color-fern-200);
+    text-underline-offset: 3px;
+    transition: color 0.16s, text-decoration-color 0.16s;
+  }
+  .link:hover {
+    color: var(--color-fern-700);
+    text-decoration-color: var(--color-fern-500);
+  }
+
+  /* Thin gold rule with a centred diamond */
+  .ornament {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--color-gold-400);
+  }
+  .ornament::before,
+  .ornament::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, transparent, var(--color-gold-300), transparent);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-rise {
+  animation: rise 0.7s var(--ease-out) both;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--color-paper-200) 0%, var(--color-paper-100) 50%, var(--color-paper-200) 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s linear infinite;
+  border-radius: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Printing (used by the advisor report): plain white pages, no shadows,
+   cards kept whole across page breaks, and on-screen controls hidden. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body {
+    background: #fff;
+  }
+  .card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  .no-print {
+    display: none !important;
+  }
 }

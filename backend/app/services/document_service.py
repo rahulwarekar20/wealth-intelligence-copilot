@@ -1,3 +1,8 @@
+"""
+User documents: validates uploads, extracts text from PDF/TXT/CSV, stores it,
+and finds passages that mention a company so the Evidence Agent can cite them.
+"""
+
 import io
 import re
 from typing import Optional
@@ -18,10 +23,12 @@ ALLOWED_EXTENSIONS = {
 
 
 class DocumentError(ValueError):
+    """The upload is invalid; the message is safe to show the user."""
     pass
 
 
 def detect_kind(filename: str, content_type: Optional[str]) -> str:
+    """File extension (.pdf/.txt/.csv) after checking it is allowed and matches the declared type."""
     name = (filename or "").lower()
     ext = next((e for e in ALLOWED_EXTENSIONS if name.endswith(e)), None)
     if not ext:
@@ -32,6 +39,7 @@ def detect_kind(filename: str, content_type: Optional[str]) -> str:
 
 
 def extract_text(data: bytes, ext: str) -> str:
+    """Plain text from the file, whitespace-collapsed and capped at MAX_STORED_CHARS; DocumentError if none."""
     if ext == ".pdf":
         from pypdf import PdfReader
         try:
@@ -49,6 +57,7 @@ def extract_text(data: bytes, ext: str) -> str:
 
 
 def save_document(db: Session, user_id: str, filename: str, content_type: str, data: bytes) -> Document:
+    """Validates, extracts and stores an upload for a user; returns the new Document."""
     ext = detect_kind(filename, content_type)
     text = extract_text(data, ext)
     doc = Document(
@@ -65,6 +74,7 @@ def save_document(db: Session, user_id: str, filename: str, content_type: str, d
 
 
 def list_documents(db: Session, user_id: str) -> list[Document]:
+    """A user's documents, newest first."""
     return (
         db.query(Document)
         .filter(Document.user_id == user_id)
@@ -74,6 +84,7 @@ def list_documents(db: Session, user_id: str) -> list[Document]:
 
 
 def delete_document(db: Session, user_id: str, document_id: str) -> bool:
+    """Deletes a user's document; False if it doesn't exist or isn't theirs."""
     doc = db.query(Document).filter(Document.id == document_id, Document.user_id == user_id).first()
     if not doc:
         return False

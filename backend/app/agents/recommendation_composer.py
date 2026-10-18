@@ -1,3 +1,10 @@
+"""
+Recommendation Composer: merges the specialist agents' outputs into one
+recommendation (action, confidence, key points, evidence for/against).
+Measures how much the agents agree and enforces the disagreement guardrail in
+code. Also composes multi-stock comparisons.
+"""
+
 import json
 from app.agents.llm_client import invoke_llm_json
 
@@ -80,6 +87,8 @@ def compose_recommendation(
     diversity_score = compute_diversity_score(portfolio_result, evidence_result, market_result)
 
     composer_context = f"""
+INVESTOR PROFILE: {portfolio_result.get('investor_profile', 'not available')}
+
 PORTFOLIO AGENT OUTPUT:
 - Concentration Flag: {portfolio_result.get('concentration_flag', 'NOT RUN')}
 - Portfolio Impact: {portfolio_result.get('portfolio_impact', 'N/A')}
@@ -130,6 +139,9 @@ RULES:
 3. Keep the Evidence Agent's citation on every point (e.g. "MSFT 10-K FY2026, Item 1A Risk Factors");
    use "market data", "news headlines" or "portfolio data" for points from the other agents
 4. Prefer official SEC figures over other numbers and quote them exactly
+5. Fit the action to the INVESTOR PROFILE: a conservative investor or a short horizon calls for
+   more caution (prefer hold/trim over adding to volatile positions); never suggest taking a
+   position above the investor's stated maximum position size
 
 Respond in this exact JSON format:
 {
@@ -234,6 +246,7 @@ If neither is clearly stronger, say so. Respond in JSON:
 
 
 def _points(items, limit: int) -> list[dict]:
+    """Normalises LLM evidence points to {'point': ...} dicts, dropping empty ones, at most `limit`."""
     out = []
     for item in items or []:
         if isinstance(item, str):

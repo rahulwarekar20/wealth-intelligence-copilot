@@ -1,5 +1,9 @@
+/**
+ * Root layout for every page: loads the fonts (Geist for text, Fraunces for
+ * headings and figures), the global styles, and the site title/description.
+ */
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,9 +16,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+});
+
 export const metadata: Metadata = {
   title: "Wealth Intelligence Copilot",
-  description: "AI-powered investment decision support",
+  description:
+    "Evidence-backed investment decisions. AI agents read SEC filings, live market data and your portfolio, then explain every Buy, Hold or Sell with citations.",
 };
 
 export default function RootLayout({
@@ -25,7 +37,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

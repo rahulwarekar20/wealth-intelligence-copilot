@@ -1,3 +1,9 @@
+"""
+Market Data Agent: fetches the live quote from Finnhub and interprets the
+day's price action (signal, momentum, position in the day's range). Rule-based,
+no LLM call.
+"""
+
 from app.core.config import settings
 import httpx
 

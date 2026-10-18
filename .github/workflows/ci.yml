@@ -1,0 +1,58 @@
+# Continuous integration: runs every check on each push and pull request,
+# so a broken change is caught before it reaches production.
+#   backend  - pytest against a throwaway Postgres
+#   frontend - typecheck, lint, unit/component tests, production build
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: wealth
+          POSTGRES_PASSWORD: wealth_dev_password
+          POSTGRES_DB: wealth_copilot
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U wealth"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # The app database is never touched by tests; they use the _test database
+      DATABASE_URL: postgresql+psycopg2://wealth:wealth_dev_password@localhost:5432/wealth_copilot
+      TEST_DATABASE_URL: postgresql+psycopg2://wealth:wealth_dev_password@localhost:5432/wealth_copilot_test
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else-0123456789
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build

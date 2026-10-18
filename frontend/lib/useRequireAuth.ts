@@ -1,3 +1,6 @@
+/**
+ * Route guard for signed-in pages.
+ */
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getToken } from "./api";

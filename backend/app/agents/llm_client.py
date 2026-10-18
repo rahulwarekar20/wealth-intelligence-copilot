@@ -1,3 +1,9 @@
+"""
+LLM client (Groq, OpenAI-compatible API). invoke_llm returns text and
+invoke_llm_json returns parsed JSON; both handle short rate-limit waits and
+raise LLMError when the provider fails.
+"""
+
 import json
 import logging
 import re
@@ -26,6 +32,7 @@ _RETRY_IN = re.compile(r"try again in ([0-9.]+)(ms|s)")
 
 
 def _rate_limit_wait(response: httpx.Response) -> float:
+    """Seconds the provider asks us to wait after a 429, from the Retry-After header or the error text."""
     header = response.headers.get("retry-after")
     if header:
         try:

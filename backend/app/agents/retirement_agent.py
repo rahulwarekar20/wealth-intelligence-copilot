@@ -1,8 +1,14 @@
+"""
+Retirement Agent: answers retirement questions against the user's actual
+portfolio, remembering details (age, savings, goals) from the conversation.
+"""
+
 import logging
 from sqlalchemy.orm import Session
 from app.agents.llm_client import invoke_llm_json
 from app.repositories.portfolio_repository import get_holdings
 from app.services.portfolio_service import value_holdings
+from app.services.profile_service import assets_by_class, describe_profile, get_profile
 
 logger = logging.getLogger("wealth-copilot.retirement")
 
@@ -41,6 +47,15 @@ def run_retirement_analysis(query: str, user_id: str, db: Session, history: list
     if not positions:
         portfolio_text += "- No holdings recorded\n"
 
+    # Everything else they own, and how they invest, from their profile
+    other = assets_by_class(db, user_id)
+    other_total = sum(other.values())
+    if other:
+        portfolio_text += "\nOther assets (outside the stock portfolio):\n"
+        portfolio_text += "".join(f"- {cls}: ${value:,.2f}\n" for cls, value in other.items())
+    portfolio_text += f"\nTotal net worth (stocks + other assets): ${total_value + other_total:,.2f}\n"
+    portfolio_text += f"Investor profile: {describe_profile(get_profile(db, user_id))}\n"
+
     system_prompt = """You are a Retirement Intelligence Agent for a wealth management platform.
 
 You have access to the user's actual portfolio data and help them answer retirement planning questions.
@@ -50,6 +65,10 @@ Your job is to:
 2. Use their real portfolio data to give personalised, grounded advice
 3. Ask clarifying questions if you need more information (age, target retirement age, monthly savings, expenses)
 4. Be direct and specific — not generic
+5. Count other assets (cash, bonds, property) toward their retirement resources, but note that
+   property is usually not spendable unless sold or rented out
+6. Respect the investor profile: risk tolerance shapes the assumed allocation and return, and a
+   stated horizon answers "how many years until retirement" if they have not said otherwise
 
 Common retirement rules of thumb you use:
 - 4% withdrawal rule: retirement fund should be 25× annual expenses
@@ -106,6 +125,7 @@ Respond with JSON only."""
         result["confidence"] = "low"
     result["disclaimer"] = result.get("disclaimer") or "This is informational only, not personalised financial advice."
     result["total_portfolio_value"] = round(total_value, 2)
+    result["other_assets_total"] = round(other_total, 2)
     result["positions"] = positions
     result["unpriced_tickers"] = unpriced
     return result

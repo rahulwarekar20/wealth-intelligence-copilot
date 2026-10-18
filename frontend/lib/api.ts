@@ -1,9 +1,20 @@
+/**
+ * Backend API client: one typed function per endpoint (auth, portfolio,
+ * copilot questions, strategy, documents), plus token handling and readable
+ * error messages. Pages call these functions instead of using axios directly.
+ */
 import axios, { AxiosError } from "axios";
 import type {
+  AppAlert,
   AskResponse,
   ChatTurn,
   Holding,
+  ImportRow,
   JournalEntry,
+  OtherAsset,
+  Profile,
+  RiskTolerance,
+  TrackRecordCall,
   PortfolioStrategy,
   PortfolioSummary,
   StoredDocument,
@@ -15,6 +26,7 @@ export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:800
 
 const api = axios.create({ baseURL: API_URL });
 
+/** The saved login token, or null (also when storage is unavailable). */
 export function getToken(): string | null {
   try {
     return localStorage.getItem("token");
@@ -23,6 +35,7 @@ export function getToken(): string | null {
   }
 }
 
+/** Signs out: forgets the token and session data, then returns to the landing page. */
 export function logout() {
   try {
     localStorage.removeItem("token");
@@ -65,32 +78,38 @@ export function getErrorMessage(err: unknown, fallback = "Something went wrong. 
 }
 
 // Auth
+/** POST /auth/login — returns { access_token }. */
 export const login = async (email: string, password: string) => {
   const response = await api.post<{ access_token: string }>("/auth/login", { email, password });
   return response.data;
 };
 
+/** POST /auth/signup — creates the account and returns { access_token }. */
 export const signup = async (email: string, password: string) => {
   const response = await api.post<{ access_token: string }>("/auth/signup", { email, password });
   return response.data;
 };
 
+/** GET /auth/me — the signed-in user's profile. */
 export const getMe = async () => {
   const response = await api.get("/auth/me");
   return response.data;
 };
 
 // Portfolio
+/** GET /portfolio/summary — holdings with live prices, weights and total value. */
 export const getPortfolioSummary = async () => {
   const response = await api.get<PortfolioSummary>("/portfolio/summary");
   return response.data;
 };
 
+/** GET /portfolio/holdings — stored holdings without prices. */
 export const getHoldings = async () => {
   const response = await api.get<Holding[]>("/portfolio/holdings");
   return response.data;
 };
 
+/** POST /portfolio/holdings — adds a holding. */
 export const addHolding = async (data: {
   ticker: string;
   quantity: number;
@@ -101,6 +120,7 @@ export const addHolding = async (data: {
   return response.data;
 };
 
+/** DELETE /portfolio/holdings/:id — removes a holding. */
 export const deleteHolding = async (holdingId: string) => {
   await api.delete(`/portfolio/holdings/${holdingId}`);
 };
@@ -115,22 +135,26 @@ export const askCopilot = async (query: string, history: ChatTurn[] = []) => {
   return response.data;
 };
 
+/** GET /decisions/portfolio-strategy — AI strategy for every position (10–20 s). */
 export const getPortfolioStrategy = async () => {
   const response = await api.get<PortfolioStrategy>("/decisions/portfolio-strategy");
   return response.data;
 };
 
+/** GET /decisions/journal — past recommendations (audit trail). */
 export const getJournal = async () => {
   const response = await api.get<JournalEntry[]>("/decisions/journal");
   return response.data;
 };
 
 // Documents
+/** GET /documents/ — the user's uploaded documents. */
 export const listDocuments = async () => {
   const response = await api.get<{ documents: StoredDocument[] }>("/documents/");
   return response.data.documents;
 };
 
+/** POST /documents/upload — uploads a PDF/TXT/CSV file. */
 export const uploadDocument = async (file: File) => {
   const formData = new FormData();
   formData.append("file", file);
@@ -138,6 +162,53 @@ export const uploadDocument = async (file: File) => {
   return response.data;
 };
 
+/** DELETE /documents/:id — removes a document. */
 export const deleteDocument = async (documentId: string) => {
   await api.delete(`/documents/${documentId}`);
 };
+
+/** POST /portfolio/import/preview — holdings read from a brokerage CSV/PDF, not yet saved. */
+export const previewImport = async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post<{ holdings: ImportRow[]; method: "csv" | "ai" }>("/portfolio/import/preview", formData);
+  return response.data;
+};
+
+/** POST /portfolio/import — saves confirmed holdings; `replace` removes the existing ones first. */
+export const confirmImport = async (holdings: ImportRow[], replace: boolean) => {
+  const response = await api.post<{ imported: number }>("/portfolio/import", { holdings, replace });
+  return response.data;
+};
+
+// Profile and other assets
+/** GET /profile — risk tolerance, horizon and position limit (defaults until saved). */
+export const getProfile = async () => (await api.get<Profile>("/profile")).data;
+
+/** PUT /profile — saves the profile and returns it with the derived limits. */
+export const saveProfile = async (data: { risk_tolerance: RiskTolerance; horizon_years: number | null; max_position_pct: number }) =>
+  (await api.put<Profile>("/profile", data)).data;
+
+/** GET /assets — other assets and their total. */
+export const listAssets = async () => (await api.get<{ assets: OtherAsset[]; total: number }>("/assets")).data;
+
+/** POST /assets — adds an asset. */
+export const addAsset = async (data: Omit<OtherAsset, "id">) => (await api.post<OtherAsset>("/assets", data)).data;
+
+/** DELETE /assets/:id — removes an asset. */
+export const deleteAsset = async (assetId: string) => {
+  await api.delete(`/assets/${assetId}`);
+};
+
+// Alerts and track record
+/** GET /alerts — newest alerts and unread count; `refresh` runs the market checks if due. */
+export const getAlerts = async (refresh = true) =>
+  (await api.get<{ alerts: AppAlert[]; unread: number }>("/alerts", { params: { refresh } })).data;
+
+/** POST /alerts/:id/read, or /alerts/read for all of them. */
+export const markAlertsRead = async (alertId?: string) => {
+  await api.post(alertId ? `/alerts/${alertId}/read` : "/alerts/read");
+};
+
+/** GET /decisions/track-record — past calls with the price then and now. */
+export const getTrackRecord = async () => (await api.get<{ calls: TrackRecordCall[] }>("/decisions/track-record")).data.calls;

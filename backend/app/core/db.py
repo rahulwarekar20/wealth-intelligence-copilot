@@ -1,3 +1,5 @@
+"""SQLAlchemy engine, session factory, and the get_db request dependency."""
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.core.config import settings
@@ -7,6 +9,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def get_db():
+    """FastAPI dependency: one database session per request, always closed afterwards."""
     db = SessionLocal()
     try:
         yield db

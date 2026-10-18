@@ -1,3 +1,9 @@
+"""
+Supervisor Agent: classifies a question (single stock, portfolio-wide,
+retirement, research, unclear), extracts up to MAX_TICKERS tickers, and decides
+which specialist agents to run.
+"""
+
 import re
 from app.agents.llm_client import invoke_llm_json
 
