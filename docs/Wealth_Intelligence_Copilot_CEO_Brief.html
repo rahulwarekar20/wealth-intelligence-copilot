@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wealth Intelligence Copilot CEO Brief and Demo Guide</title>
+<style>
+:root{--ink:#17212d;--muted:#536171;--line:#d9d9d9;--blue:#16364f;--pale:#f2f6f9}
+*{box-sizing:border-box}body{margin:0;background:#e9eef2;color:var(--ink);font:16px/1.6 'Segoe UI',Arial,sans-serif}main{max-width:1000px;margin:36px auto;background:white;padding:64px 76px;box-shadow:0 8px 40px #1b304015}h1,h2,h3{color:#000;line-height:1.2}h1{font-size:42px;max-width:740px;margin:0 0 16px;font-weight:650}h2{font-size:27px;margin:48px 0 18px}h3{font-size:20px;margin:28px 0 12px}p{margin:0 0 15px}a{color:#165c84;text-underline-offset:3px}.meta{color:var(--muted);font-size:14px;margin-bottom:32px}.subtitle{font-size:22px;margin-bottom:12px}.lead{font-size:20px;line-height:1.6}.contents{columns:2;column-gap:35px;padding-left:22px}.contents li{margin:0 0 9px;break-inside:avoid}ul,ol{padding-left:25px;margin:12px 0 20px}li{margin:7px 0}table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.45;margin:18px 0 24px;table-layout:fixed}th,td{border:1px solid var(--line);padding:12px 13px;text-align:left;vertical-align:middle;overflow-wrap:anywhere}th{background:var(--blue);color:white;font-weight:600}tbody tr:nth-child(even){background:var(--pale)}code{font:13px Consolas,monospace;overflow-wrap:anywhere}.small{font-size:14px;color:var(--muted)}.diagram{display:block;width:100%;height:auto;margin:24px 0}section{scroll-margin-top:25px}.quote{font-size:19px;line-height:1.65;font-style:italic;margin:20px 0}.print{position:fixed;bottom:20px;right:20px;border:0;border-radius:6px;padding:12px 18px;color:#fff;background:var(--blue);font:14px 'Segoe UI',sans-serif;cursor:pointer}.source-list{font-size:14px} @media(max-width:760px){main{margin:0;padding:30px 22px}h1{font-size:32px}.contents{columns:1}table{font-size:12px}th,td{padding:8px}.print{position:static;margin:20px}}@page{size:A4;margin:18mm 17mm} @media print{body{background:white;font-size:10pt;line-height:1.45}main{margin:0;padding:0;max-width:none;box-shadow:none}h1{font-size:28pt}h2{font-size:18pt;margin-top:24pt}h3{font-size:13pt}h1,h2,h3{break-after:avoid}p,li{orphans:3;widows:3}table{font-size:8.5pt}th,td{padding:7pt}tr,svg{break-inside:avoid}thead{display:table-header-group}.print{display:none}.lead{font-size:12pt}.quote{font-size:11pt}.meta,.small,.source-list{font-size:8.5pt}a{color:inherit}.contents{columns:2}.technical{break-before:page}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Wealth Intelligence Copilot</h1>
+<p class="subtitle">CEO Brief and Demo Guide</p>
+<p class="meta">Product value, user workflow, architecture and AI implementation<br>11 October 2026</p>
+<p class="lead">Wealth Intelligence Copilot helps an investor understand a stock decision in the context of their own holdings. It brings portfolio exposure, company filings, market signals and private research into one conversational workflow, then presents an answer with supporting and opposing evidence.</p>
+<p><strong>Executive conclusion.</strong> The application is a working decision support prototype with a credible demonstration of contextual research. Its next milestone should be a measured pilot that validates answer quality, traceability and user time savings before investment in production scale. It does not execute trades, and the current implementation does not establish superior investment returns.</p>
+</header>
+<h2>Reading guide</h2>
+<ol class="contents">
+<li><a href="#value">Business purpose and benefits</a></li>
+<li><a href="#features">Main features and maturity</a></li>
+<li><a href="#tabs">How to use each tab</a></li>
+<li><a href="#demo">CEO demo script</a></li>
+<li><a href="#market">Market positioning</a></li>
+<li><a href="#architecture">Architecture and technology</a></li>
+<li><a href="#agents">How the application is agentic</a></li>
+<li><a href="#rag">RAG and retrieval strategy</a></li>
+<li><a href="#models">Models and API integrations</a></li>
+<li><a href="#trust">Trust and operational limitations</a></li>
+<li><a href="#pilot">Pilot decision and roadmap</a></li>
+<li><a href="#references">Sources and implementation map</a></li>
+</ol>
+<section id="value">
+<h2>1 Business purpose and benefits</h2>
+<p>Investors often move between a portfolio tracker, a quote service, lengthy SEC filings, news articles and their own notes before forming a view. Those tools provide information, but the user must connect the company’s prospects to their personal exposure. WIC combines that work into a single question such as “Should I buy more Apple?”</p>
+<p>The useful distinction is context. A company can have strong fundamentals while already representing too much of the user’s portfolio. WIC can bring both facts into the same answer. The user can inspect the rationale and filing links rather than relying only on a recommendation label.</p>
+<table><thead><tr><th style="width:25%">Audience</th><th style="width:40%">Practical use</th><th>Potential benefit to validate</th></tr></thead><tbody>
+<tr><td>Self-directed investor</td><td>Research a stock, compare alternatives and assess concentration.</td><td>Less time assembling information; clearer tradeoffs.</td></tr>
+<tr><td>Advisor or analyst</td><td>Prepare a first-pass review using holdings and internal research.</td><td>Faster preparation and more consistent evidence presentation.</td></tr>
+<tr><td>Wealth platform team</td><td>Offer an explanatory research layer alongside existing portfolio tools.</td><td>More useful engagement and a reusable decision support workflow.</td></tr>
+</tbody></table>
+<p>These are candidate users and business benefits, not measured customer outcomes. Possible commercial models include a research subscription or an advisor workspace; neither billing nor an enterprise advisor workflow is implemented.</p>
+<p class="quote">“We help users understand what a company’s evidence means for their own portfolio, while keeping the sources visible and the final decision with the user.”</p>
+</section>
+<section id="features">
+<h2>2 Main features and maturity</h2>
+<table><thead><tr><th style="width:27%">Capability</th><th style="width:46%">Current behavior</th><th>Important boundary</th></tr></thead><tbody>
+<tr><td>Portfolio dashboard</td><td>Manual holdings, quote-based values, weights, gain or loss and concentration indicators.</td><td>No brokerage synchronization.</td></tr>
+<tr><td>Conversational research</td><td>Company-name resolution, follow-up context, stock analysis and comparisons of up to three tickers.</td><td>General research without a resolved stock may prompt clarification.</td></tr>
+<tr><td>SEC evidence</td><td>Annual XBRL financials and selected 10-K Risk Factors and MD&amp;A passages with filing links.</td><td>Coverage depends on issuer filings and parser success.</td></tr>
+<tr><td>Whole portfolio strategy</td><td>Position recommendations, ranked actions, diversification assessment and health score.</td><td>Health score is model-generated, not a calibrated risk metric.</td></tr>
+<tr><td>Private documents</td><td>Account-scoped PDF, TXT and CSV text extraction and company-mention retrieval.</td><td>5 MB uploads; no OCR or semantic vector search.</td></tr>
+<tr><td>Retirement conversation</td><td>Uses actual portfolio value and recent chat details to produce estimates and action items.</td><td>Estimates are LLM-generated; no dedicated simulation engine.</td></tr>
+<tr><td>Decision records</td><td>Successful stock recommendations and portfolio strategies are stored server-side.</td><td>No visible Journal tab; retirement answers are not logged by the chat path.</td></tr>
+</tbody></table>
+<p><strong>Product maturity.</strong> Authentication, user-scoped data access and provider integrations exist in code. AWS production architecture is a target, not a deployed capability evidenced by this repository. A pgvector-enabled database image is configured, but vector retrieval is not implemented.</p>
+</section>
+<section id="tabs">
+<h2>3 How to use each tab</h2>
+<p>Open <code>http://localhost:3000</code> for the local demo and sign in or create an account. Seed the demo data beforehand to show five holdings: AAPL, GOOGL, SPY, JPM and MSFT. The current sidebar has four tabs.</p>
+<h3>Dashboard</h3>
+<ol><li>Review total priced portfolio value and the holdings list.</li><li>Add a holding using its ticker, quantity, cost basis and account type. Cost basis represents a per-share cost in the valuation code.</li><li>Inspect the current price, position value, portfolio weight and gain or loss versus cost.</li><li>Look for large position weights and concentration warnings. Remove a holding when it no longer belongs in the demonstration portfolio.</li></ol>
+<p><strong>Interpretation.</strong> Market value equals quantity multiplied by the quote. Weight equals position value divided by total priced portfolio value. A missing price excludes that holding from value and weight calculations and is reported to the user. Quotes are cached, so “live” means provider-fed rather than a streaming real-time guarantee.</p>
+<p>The dashboard correlation figures use approximately 30 daily closing prices. They currently correlate price levels rather than returns and align series by length rather than explicit trading dates. Present these as exploratory indicators, not an institutional risk model.</p>
+<h3>Analyse Portfolio</h3>
+<ol><li>Click <strong>Analyse My Portfolio</strong>.</li><li>Review Portfolio Health, diversification, top risk and top opportunity.</li><li>Read Priority Actions, then the Position-by-Position Strategy.</li><li>Open available SEC source links and use <strong>Refresh</strong> to request a new analysis.</li></ol>
+<p>The agent combines priced holdings with market evidence and SEC financial highlights. It aggregates the same ticker across accounts. It does not run the full private-document and 10-K passage retrieval used by individual stock chat analysis. The UI indicates a 30 to 60 second wait; actual latency depends on portfolio size, network and provider availability.</p>
+<h3>Ask Copilot</h3>
+<ol><li>Ask a direct question, such as “What are Microsoft’s biggest risks?” or “Should I buy more Apple?”</li><li>Review the direct answer, key points, action, confidence, positives, risks, numerical metrics and sources.</li><li>Ask a follow-up such as “Should I sell it?” to demonstrate recent conversation context.</li><li>Compare stocks with “AAPL or GOOGL — which looks stronger?”</li><li>Ask “How healthy is my whole portfolio?” to route to portfolio strategy, or ask a retirement question to use the retirement agent.</li></ol>
+<p>For retirement, provide a time horizon, age, desired annual expenses and current savings contribution. The agent checks recent history before asking again. Treat the result as an assumption-based estimate. The model uses rules of thumb and stated return or inflation assumptions rather than a verified financial planning calculator.</p>
+<p><strong>Confidence is not a probability of profit.</strong> It is an output score influenced by model judgment and a simple code guardrail. Citation labels help inspection but do not guarantee that every generated claim is faithfully supported.</p>
+<h3>Documents</h3>
+<ol><li>Select a text-based PDF, TXT or CSV of up to 5 MB.</li><li>Click <strong>Upload Document</strong> and check the successful text extraction message.</li><li>Return to Ask Copilot and ask about a company explicitly named in the document.</li><li>Look for the document filename in cited evidence and the sources list. Use <strong>Delete</strong> to remove it from future retrieval.</li></ol>
+<p>Public SEC filings are fetched automatically; use uploads for private research. Scanned PDFs are unsupported because there is no OCR. CSV files are treated as text, not imported as structured portfolios. Uploading a statement does not automatically add its holdings to the dashboard.</p>
+<p>Deleting a document removes the stored text used for future searches; earlier saved decision records may still contain excerpts or generated statements. Retirement and Journal routes redirect to Ask Copilot and are not separate tabs.</p>
+</section>
+<section id="demo">
+<h2>4 CEO demo script</h2>
+<p><strong>Opening message.</strong> “The demo shows how we connect a user’s portfolio to company evidence and turn that into an inspectable answer. We will demonstrate the workflow, then discuss what must be validated for a pilot.”</p>
+<table><thead><tr><th style="width:15%">Time</th><th style="width:47%">Presenter action</th><th>Business point</th></tr></thead><tbody>
+<tr><td>0 to 2 min</td><td>Dashboard: show seeded holdings, value and the largest position.</td><td>The analysis starts with the user’s actual exposure.</td></tr>
+<tr><td>2 to 4 min</td><td>Ask “What are Microsoft’s biggest risks?” Open a filing source.</td><td>Company research is accompanied by inspectable evidence.</td></tr>
+<tr><td>4 to 6 min</td><td>Ask “Should I buy more Apple?” Then “Should I sell it?”</td><td>Portfolio fit and conversation context influence the workflow.</td></tr>
+<tr><td>6 to 7 min</td><td>Compare AAPL and GOOGL.</td><td>Separate analyses lead to one comparison verdict.</td></tr>
+<tr><td>7 to 9 min</td><td>Run Analyse Portfolio; show priority actions and a position rationale.</td><td>Move from isolated stock questions to portfolio review.</td></tr>
+<tr><td>9 to 10 min</td><td>Upload a prepared research note; ask about its named company.</td><td>Private context can supplement public evidence.</td></tr>
+<tr><td>10 to 11 min</td><td>Ask a retirement question with complete inputs.</td><td>One conversation supports several financial intents.</td></tr>
+<tr><td>11 to 12 min</td><td>Show the architecture and proposed pilot measures.</td><td>The next decision is validation and hardening.</td></tr>
+</tbody></table>
+<p><strong>Prepared retirement prompt.</strong> “I am 45 and want to retire in 20 years. I expect to spend $60,000 a year in today’s dollars and currently save $1,000 per month. Using my portfolio, estimate the savings gap and state your return and inflation assumptions.” These are demonstration inputs, not a claim about the presenter.</p>
+<p><strong>Prepared document.</strong> Use a clearly labeled illustrative note that names Microsoft and MSFT and includes one distinct research observation. Ask “What does my uploaded Microsoft note add to the risk picture?” Verify retrieval beforehand; selection is based on company mentions, not semantic relevance.</p>
+<p><strong>Demo preparation.</strong> Start PostgreSQL, backend and frontend; check <code>/health</code>; verify provider credentials and SEC User-Agent configuration; run the intended questions once; confirm filing links and extracted document text. Do not display the backend <code>.env</code>. Allow time between questions for provider limits. If a request fails, show the actual error and retry after recovery. Keep dated screenshots of verified prior runs as a clearly identified backup.</p>
+</section>
+<section id="market">
+<h2>5 Market positioning</h2>
+<p>Portfolio tracking, automated investing and AI-generated strategies already exist. WIC’s defensible positioning is the combination of portfolio-aware questions, SEC evidence, private company research and explicit supporting and opposing signals. This is a product design distinction, not proof of exclusive features or a durable competitive moat.</p>
+<table><thead><tr><th style="width:24%">Representative product</th><th style="width:39%">Publicly described focus</th><th>WIC positioning</th></tr></thead><tbody>
+<tr><td>Empower Personal Dashboard</td><td>Financial overview, budgeting, investment checkup and retirement scenario planning. [M1]</td><td>Emphasizes conversational company research tied to manually recorded holdings.</td></tr>
+<tr><td>Wealthfront</td><td>Automated investing and personalized planning through its Path advice engine. [M2]</td><td>Provides research and explanations; has no custody, tax-loss harvesting or trade execution integration.</td></tr>
+<tr><td>Composer</td><td>AI-assisted discovery, construction and operation of automated trading strategies. [M3]</td><td>Explains stock and portfolio decisions using retrieved evidence; does not deploy trading strategies.</td></tr>
+</tbody></table>
+<p>These comparisons concern the products’ published emphasis. They do not assert that a competitor lacks every WIC feature. Competitor material was checked on 11 October 2026; features can change.</p>
+<p><strong>What could become an advantage.</strong> A validated corpus of financial questions, strong citation evaluation, better portfolio context and permission-aware private research could make the experience difficult to replicate well. Model access and agent orchestration alone are widely available. WIC currently lacks the account connectivity and mature planning infrastructure offered by established platforms.</p>
+</section>
+<section id="architecture" class="technical">
+<h2>6 Architecture and technology</h2>
+<p>The application uses a three-tier web architecture: a Next.js browser interface, a FastAPI application server and PostgreSQL persistence. The backend is a modular monolith with API, services, repositories, agents and models organized into separate Python modules. Specialist agents are logical components inside that server, not separately deployed microservices.</p>
+<svg class="diagram" viewBox="0 0 850 350" role="img" aria-label="Browser calls FastAPI. FastAPI uses PostgreSQL and routes questions to agents which call Groq, SEC, Finnhub and Alpha Vantage.">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#536171"/></marker></defs>
+<g font-family="Segoe UI,Arial,sans-serif" font-size="17" text-anchor="middle"><g fill="#f2f6f9" stroke="#9cabb7"><rect x="15" y="35" width="195" height="80" rx="5"/><rect x="300" y="35" width="245" height="80" rx="5"/><rect x="635" y="35" width="200" height="80" rx="5"/><rect x="300" y="175" width="245" height="80" rx="5"/><rect x="15" y="280" width="820" height="55" rx="5"/></g><g fill="#17212d"><text x="112" y="66">Next.js browser UI</text><text x="112" y="93" font-size="14">Four tabs and chat</text><text x="422" y="66">FastAPI application</text><text x="422" y="93" font-size="14">JWT and user-scoped services</text><text x="735" y="66">PostgreSQL</text><text x="735" y="93" font-size="14">Holdings documents decisions</text><text x="422" y="206">Supervisor and agents</text><text x="422" y="233" font-size="14">LangGraph stock workflow</text><text x="425" y="314">Groq models   |   SEC EDGAR   |   Finnhub   |   Alpha Vantage</text></g><g stroke="#536171" stroke-width="2" marker-end="url(#arrow)"><path d="M210 75H290"/><path d="M545 75H625"/><path d="M422 115V165"/><path d="M422 255V273"/></g></g></svg>
+<p>A chat request carries a question and recent history to the authenticated API. The server resolves intent, selects a route, gathers holdings and external evidence, invokes the relevant model stages, normalizes the response and persists successful stock or strategy results. The frontend renders specialized response cards.</p>
+<table><thead><tr><th style="width:26%">Layer</th><th style="width:39%">Technology in repository</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>Frontend</td><td>Next.js 16.2.12, React 19.2.4, TypeScript 5, Tailwind CSS 4, Axios</td><td>Pages, navigation, forms, chat and API access.</td></tr>
+<tr><td>Backend</td><td>Python 3.11 target, FastAPI 0.115.12, Uvicorn, Pydantic</td><td>HTTP endpoints and validated inputs.</td></tr>
+<tr><td>Persistence</td><td>PostgreSQL, SQLAlchemy 2.0.35, psycopg2, JSONB and UUIDs</td><td>Users, holdings, evidence, decisions and document text.</td></tr>
+<tr><td>Agent orchestration</td><td>LangGraph 0.2.28; langchain-core 0.3.86 dependency</td><td>Typed state and stock analysis graph.</td></tr>
+<tr><td>Data and documents</td><td>HTTPX, NumPy, pypdf 6.20.0</td><td>External APIs, calculations and PDF extraction.</td></tr>
+<tr><td>Authentication</td><td>python-jose, passlib and bcrypt</td><td>JWT validation and password hashing.</td></tr>
+<tr><td>Development</td><td>Docker Compose, pytest, ESLint; Railway configuration files</td><td>Local database, checks and deployment configuration.</td></tr>
+</tbody></table>
+<p><strong>Deployment boundary.</strong> The README proposes ECS Fargate, RDS, S3, Cognito and CloudWatch. The active implementation instead stores extracted documents in PostgreSQL and uses its own JWT authentication. Configuration files do not prove a running production deployment.</p>
+</section>
+<section id="agents">
+<h2>7 How the application is agentic</h2>
+<p>WIC is a bounded agent workflow. A model-based supervisor interprets the request, identifies up to three tickers from names and recent context, and selects specialist agents. Application code verifies candidate tickers against holdings or a quote lookup before dispatch. Unclear requests can produce a clarification instead of an invented analysis.</p>
+<table><thead><tr><th style="width:26%">Component</th><th style="width:21%">Method</th><th>Responsibility</th></tr></thead><tbody>
+<tr><td>Supervisor</td><td>Small LLM</td><td>Intent, company resolution and agent selection.</td></tr>
+<tr><td>Portfolio Agent</td><td>Deterministic code</td><td>Position weight and concentration; high above 25%, medium above 15%.</td></tr>
+<tr><td>Market Data Agent</td><td>Deterministic code</td><td>Daily quote movement, momentum and intraday range.</td></tr>
+<tr><td>Evidence Agent</td><td>Retrieval and small LLM</td><td>SEC, market, news and document context; supporting and opposing signals.</td></tr>
+<tr><td>Recommendation Composer</td><td>Large LLM and code</td><td>Answer, action, explanation, confidence and output normalization.</td></tr>
+<tr><td>Portfolio Strategy Agent</td><td>Large LLM</td><td>All-position review, health assessment and priorities.</td></tr>
+<tr><td>Retirement Agent</td><td>Large LLM</td><td>Contextual savings and retirement estimates.</td></tr>
+</tbody></table>
+<p>The single-stock LangGraph is <code>specialists → composer → END</code>. Specialist work runs concurrently using a thread pool; database workers receive separate SQLAlchemy sessions. Stock comparisons run per-ticker pipelines concurrently and add a small-model comparison verdict. Portfolio strategy and retirement are routed outside this two-node graph.</p>
+<p><strong>LangChain’s actual role.</strong> LangGraph supplies <code>StateGraph</code> and the execution structure. <code>langchain-core</code> is listed as a dependency. The inspected implementation uses custom HTTPX model calls and custom retrieval functions; it does not use a LangChain vector store, document loader chain, agent tool loop or standard retriever pipeline.</p>
+<p>The app is agentic because it selects and coordinates specialized work based on intent and combines the results. Its autonomy is limited to analysis. There is no open-ended planning loop, background portfolio monitoring, self-directed trading, durable graph checkpointing or long-term agent memory implemented in this workflow. Recent chat history is passed into prompts rather than stored as a dedicated memory system.</p>
+</section>
+<section id="rag">
+<h2>8 RAG and retrieval strategy</h2>
+<p>Retrieval augmented generation means supplying retrieved information to a model before it generates an answer. WIC implements this pattern with official financial data and keyword-selected text passages. It does not train the model on the user’s documents or perform embedding-based nearest-neighbor search.</p>
+<h3>Public filing retrieval</h3>
+<ol><li>Resolve ticker to SEC CIK using the SEC company ticker dataset.</li><li>Fetch company facts and filing submissions. Build annual financial context from XBRL facts, including up to three years of annual figures.</li><li>Fetch the latest 10-K HTML and extract Item 1A Risk Factors and Item 7 MD&amp;A.</li><li>Select question-relevant passages and attach company, filing year, section labels and source URLs.</li><li>Insert financials and selected passages into the Evidence Agent prompt. Pass its analysis and raw metrics to the composer.</li></ol>
+<p>The service also discovers filing metadata and links including 10-Q filings. The narrative retrieval path described here specifically selects 10-K sections; it is not a comprehensive 10-Q narrative analysis pipeline.</p>
+<h3>Current chunking strategy</h3>
+<table><thead><tr><th style="width:23%">Source</th><th style="width:43%">Text unit and limits</th><th>Overlap and metadata</th></tr></thead><tbody>
+<tr><td>SEC filing sections</td><td>Newline-separated paragraphs of at least 120 characters. Selected passages are capped at 600 characters, trimming at a word boundary. The evidence caller requests two passages per section.</td><td>No explicit overlap. Citation includes ticker, 10-K fiscal year and item label.</td></tr>
+<tr><td>Uploaded documents</td><td>Whole extracted text stored, capped at 500,000 characters. Retrieval creates a window of about 150 characters before and after the matched term, plus the term itself.</td><td>No persistent chunk index or overlap setting. Filename is the source label.</td></tr>
+</tbody></table>
+<p>This is on-demand passage selection rather than a precomputed token chunking pipeline. No embedding model, vector dimension, similarity threshold or vector index is used.</p>
+<h3>Current retrieval strategy</h3>
+<p><strong>SEC text.</strong> The query is lowercased and tokenized into alphabetic words of at least three characters. Common words are removed. Each paragraph is scored by the sum of occurrences of the remaining query terms. Higher scores rank first; original order breaks ties. If nothing matches, the service uses the opening paragraphs. The caller retrieves up to four passages across the two sections.</p>
+<p><strong>Private documents.</strong> The service searches only the authenticated user’s documents, newest first. Case-insensitive whole-word matching uses the ticker, company name and a company name with its corporate suffix removed. It returns at most four excerpts and only one excerpt per document. These excerpts are selected by company mentions, not ranked by the question’s meaning.</p>
+<p><strong>Freshness.</strong> Quotes use a five-minute in-memory cache with last-known-price fallback on failure. General market evidence is reused for ten minutes. SEC financials are cached for 24 hours. Parsed filing sections are held in memory by accession, with a maximum of 50 cached entries.</p>
+<p><strong>Why this design is useful for a prototype.</strong> It is inexpensive, inspectable and avoids an embedding service. Its limitations are missed synonyms, generic fallback passages, clipped context and private-document selection biased toward recent documents and first mentions. PDF extraction does not retain page-level provenance in the stored retrieval output.</p>
+<p><strong>Proposed next design.</strong> Preserve filing sections, document IDs and page or location metadata; create token-aware chunks with evaluated overlap; combine lexical search with embeddings; rerank candidates; enforce user scope before retrieval; and evaluate citation support and retrieval recall on representative questions. Chunk sizes, overlap, embedding provider and top-k should be selected through experiments, not presented as existing settings.</p>
+</section>
+<section id="models">
+<h2>9 Models and API integrations</h2>
+<p>The active provider is <strong>Groq</strong>, using its OpenAI-compatible chat completions endpoint. The model identifiers begin with <code>openai/</code>, but requests go to Groq, not the OpenAI API. The <code>bedrock_client.py</code> file is a deprecated compatibility wrapper that also calls Groq; it does not invoke AWS Bedrock or Claude.</p>
+<table><thead><tr><th style="width:32%">Model configured in code</th><th style="width:41%">Use</th><th>Execution settings</th></tr></thead><tbody>
+<tr><td><code>openai/gpt-oss-20b</code></td><td>Supervisor, Evidence Agent and comparison verdict.</td><td>Small-model path; low reasoning effort by default.</td></tr>
+<tr><td><code>openai/gpt-oss-120b</code></td><td>Recommendation synthesis, portfolio strategy and retirement.</td><td>Large-model path; medium reasoning for strategy and retirement.</td></tr>
+</tbody></table>
+<p>Temperature is 0.1. Calls request structured JSON through prompts, then parse and normalize it in application code. This is not strict provider-enforced JSON schema validation. Token budgets vary by stage; malformed or empty JSON responses can be retried once with a doubled budget. Short rate-limit delays of up to four seconds are retried; longer limits return an error. Model availability and costs depend on the provider account.</p>
+<table><thead><tr><th style="width:23%">External integration</th><th style="width:45%">API used</th><th>What it contributes</th></tr></thead><tbody>
+<tr><td>Groq</td><td><code>POST api.groq.com/openai/v1/chat/completions</code></td><td>Classification, evidence reasoning and synthesis.</td></tr>
+<tr><td>SEC EDGAR</td><td>Company ticker JSON; CIK submissions; XBRL companyfacts; filing archive HTML.</td><td>Official financials and source passages. Requires descriptive User-Agent contact information.</td></tr>
+<tr><td>Finnhub</td><td>Quote, company profile, basic financial metrics and company news.</td><td>Prices, fundamentals and headlines. API key required.</td></tr>
+<tr><td>Alpha Vantage</td><td><code>TIME_SERIES_DAILY</code> query.</td><td>Historical closing prices for dashboard correlations. Optional key.</td></tr>
+</tbody></table>
+<p>News sentiment is a deterministic count of positive and negative whole-word headline terms. It is not a trained sentiment model. Market momentum is based on daily price behavior rather than a comprehensive historical technical analysis engine.</p>
+<h3>Main application endpoints</h3>
+<table><thead><tr><th style="width:52%">Endpoint</th><th>Function</th></tr></thead><tbody>
+<tr><td><code>GET /health</code></td><td>Service health.</td></tr>
+<tr><td><code>POST /auth/signup</code>, <code>POST /auth/login</code>, <code>GET /auth/me</code></td><td>Account and JWT session.</td></tr>
+<tr><td><code>GET or POST /portfolio/holdings</code>; <code>DELETE /portfolio/holdings/{id}</code></td><td>Manage manually entered holdings.</td></tr>
+<tr><td><code>GET /portfolio/summary</code></td><td>Valuation, concentration and correlation.</td></tr>
+<tr><td><code>POST /decisions/ask</code>; <code>POST /decisions/query</code></td><td>Unified chat; explicit-ticker alternative.</td></tr>
+<tr><td><code>GET /decisions/portfolio-strategy</code>; <code>POST /decisions/retirement</code></td><td>Direct specialist routes.</td></tr>
+<tr><td><code>GET /decisions/journal</code>; <code>GET /evidence/{ticker}</code></td><td>Latest 20 decision records; market and news evidence.</td></tr>
+<tr><td><code>POST /documents/upload</code>; <code>GET /documents/</code>; <code>DELETE /documents/{id}</code></td><td>Account-scoped document management.</td></tr>
+</tbody></table>
+<p><strong>Data movement.</strong> Selected document excerpts, portfolio context and recent conversation details are included in model prompts sent to Groq. “Private documents” means access-scoped application data; it does not mean all processing remains inside the local database. Provider retention, contractual terms and data licensing require review before an external pilot.</p>
+</section>
+<section id="trust">
+<h2>10 Trust and operational limitations</h2>
+<p>Implemented controls include JWT-protected routes, password hashing, user-filtered holdings and document queries, validated inputs, upload size and type checks, restricted CORS and response security headers. Startup checks warn about missing keys and placeholder secrets. These controls are useful foundations, not a certification of production security.</p>
+<p>The composer attaches source links and numerical metrics from retrieved data, and it enforces a confidence cap of 0.4 when the evidence score is below 0.4. Failed final synthesis is reported rather than logged as a successful placeholder recommendation. A failed Evidence Agent can still pass raw financial data to the composer; this is a degraded analysis, not a complete evidence review.</p>
+<h3>How to explain the evidence score honestly</h3>
+<p>The code calls this an “evidence diversity” or agreement score, but calculates an average of directional values: low concentration, bullish evidence and bullish market signals map to 1; medium or neutral map to 0.5; high concentration or bearish map to 0. Failed or skipped signals are omitted. Consequently, unanimous bearish signals can score 0, while strongly opposing signals can average 0.5. It is neither a source-diversity measure nor a reliable agreement metric. The disagreement label can therefore be misleading. Rename or replace the calculation before treating it as a trust feature.</p>
+<h3>Material gaps before a broader pilot</h3>
+<ul>
+<li><strong>Financial accuracy:</strong> replace LLM retirement arithmetic with deterministic calculations and explicit nominal versus real assumptions. Validate strategy coverage so every holding receives a valid result.</li>
+<li><strong>Evidence quality:</strong> automatically test whether cited passages support claims, retain precise provenance and assess extraction failures. Current citations are substantially prompt-driven.</li>
+<li><strong>Sessions and abuse controls:</strong> browser tokens are in localStorage; the API has no application request rate limiting. Harden session handling and resource limits.</li>
+<li><strong>Untrusted inputs:</strong> evaluate prompt injection from documents and chat, and keep retrieved text separate from executable instructions.</li>
+<li><strong>Freshness and analytics:</strong> expose quote timestamps and stale fallback indicators; calculate date-aligned return correlations and strengthen risk modeling.</li>
+<li><strong>Operations:</strong> add observability, cost attribution, provider quotas, backup and restore, migrations and deployment verification. Persist source and model configuration with each decision.</li>
+</ul>
+<p>The decision journal is a useful application record, but is not an immutable compliance archive. Portfolio strategies store a fixed evidence score of 0.8 and use health score divided by 100 as the record’s confidence field, so journal scores are not comparable across result types.</p>
+<p>The repository includes tests for authentication, user isolation, guardrails, SEC parsing, routing, documents and provider errors. Tests mock AI and market data. They support application behavior checks, but do not prove live model faithfulness or investment performance. This brief does not report a fresh test run or a live end-to-end validation.</p>
+</section>
+<section id="pilot">
+<h2>11 Pilot decision and roadmap</h2>
+<p><strong>Recommended CEO decision.</strong> Sponsor a limited decision support pilot after correcting the score semantics and validating the core evidence workflow. Agree a target user group, a representative question set and acceptance criteria before adding integrations or expanding distribution.</p>
+<table><thead><tr><th style="width:29%">Measure</th><th style="width:43%">How to assess</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>Research time</td><td>Compare the same tasks with and without WIC.</td><td>Validate productivity benefit.</td></tr>
+<tr><td>Supported claims</td><td>Reviewer checks each factual claim against its cited source.</td><td>Measure faithfulness.</td></tr>
+<tr><td>Retrieval coverage</td><td>Check known relevant filing and private-note passages on a benchmark.</td><td>Reveal keyword retrieval misses.</td></tr>
+<tr><td>Portfolio correctness</td><td>Verify values, weights, missing data and cross-account aggregation.</td><td>Prevent context errors.</td></tr>
+<tr><td>Completion and latency</td><td>Record successful tasks, p50 and p95 latency, quota failures and costs.</td><td>Evaluate operational viability.</td></tr>
+<tr><td>User usefulness</td><td>Ask whether the rationale helped the user understand the tradeoff.</td><td>Assess value beyond a recommendation label.</td></tr>
+</tbody></table>
+<p>Targets should be agreed with the pilot owner; no baseline, ROI or acceptance threshold has been measured here. Track cost per completed task, including retries and comparison fan-out, rather than only cost per model call.</p>
+<h3>Proposed delivery sequence</h3>
+<ol><li><strong>Validate the foundation.</strong> Correct confidence and agreement semantics; verify citations; make retirement calculations deterministic; strengthen output schemas and data freshness.</li><li><strong>Improve research quality.</strong> Add metadata-rich retrieval, evaluate hybrid lexical and vector search, and benchmark chunking and reranking.</li><li><strong>Harden the pilot.</strong> Improve sessions, rate limits, privacy controls, telemetry and reproducible decision records.</li><li><strong>Expand from evidence.</strong> Consider account synchronization, advisor workflows and production hosting only after the pilot demonstrates useful, reliable behavior.</li></ol>
+<h3>Likely CEO questions</h3>
+<p><strong>Does it buy or sell securities?</strong> No. It produces analysis and action labels; users decide and execute elsewhere.</p>
+<p><strong>Why agents instead of one prompt?</strong> Specialized components let code calculate exact values while models interpret evidence. Intent routing avoids unnecessary work and parallelism can reduce elapsed time. The benefit should still be measured against a simpler baseline.</p>
+<p><strong>Can we trust the answer?</strong> The app exposes sources and opposing signals. Trust must be earned through claim-level evaluation, numerical validation and clear missing-data behavior; confidence alone is insufficient.</p>
+<p><strong>What is the moat?</strong> A validated research experience, useful portfolio context and high-quality permission-aware evidence could become an advantage. The current technology stack alone is not a moat.</p>
+<p><strong>What does it cost?</strong> Costs include model tokens, external data access, hosting and support. The app currently has no complete cost telemetry, so estimate economics from pilot task traces rather than inventing a price.</p>
+</section>
+<section id="references">
+<h2>12 Sources and implementation map</h2>
+<p class="small">Implementation paths below are relative to the project root <code>wealth-copilot/</code>. Product behavior is derived from the repository code and README. The market comparison uses the official product pages below.</p>
+<ul class="source-list">
+<li><strong>[M1] Empower</strong> — <a href="https://www.empower.com/tools">Financial Tools</a>. Dashboard, investment checkup and retirement planning.</li>
+<li><strong>[M2] Wealthfront</strong> — <a href="https://www.wealthfront.com/planning">Financial Planning</a> and <a href="https://support.wealthfront.com/hc/en-us/articles/213576166-Open-an-Automated-Investing-Account">Automated Investing Account</a>. Planning engine and investment offering.</li>
+<li><strong>[M3] Composer</strong> — <a href="https://help.composer.trade/article/254-what-is-trade-with-ai">What is Trade with AI</a> and <a href="https://www.composer.trade/ai">Trade with AI</a>. AI-assisted strategy workflow.</li>
+</ul>
+<table><thead><tr><th style="width:32%">Subject</th><th>Primary source files</th></tr></thead><tbody>
+<tr><td>Product and setup</td><td><code>README.md</code>; <code>docker-compose.yml</code></td></tr>
+<tr><td>Tabs and user interface</td><td><code>frontend/app/components/Sidebar.tsx</code>; page files under <code>dashboard</code>, <code>strategy</code>, <code>chat</code>, <code>upload</code>, <code>retire</code> and <code>journal</code></td></tr>
+<tr><td>Routing and orchestration</td><td><code>backend/app/services/ask_service.py</code>; <code>backend/app/agents/supervisor_agent.py</code>; <code>backend/app/agents/graph.py</code></td></tr>
+<tr><td>RAG and chunk selection</td><td><code>backend/app/services/sec_service.py</code>; <code>document_service.py</code>; <code>backend/app/agents/evidence_agent.py</code></td></tr>
+<tr><td>Models and synthesis</td><td><code>backend/app/agents/llm_client.py</code>; <code>recommendation_composer.py</code>; <code>bedrock_client.py</code></td></tr>
+<tr><td>Portfolio and retirement</td><td><code>backend/app/services/portfolio_service.py</code>; <code>backend/app/agents/portfolio_agent.py</code>; <code>portfolio_strategy_agent.py</code>; <code>retirement_agent.py</code></td></tr>
+<tr><td>Data and dependencies</td><td><code>backend/app/models/models.py</code>; <code>backend/app/core/config.py</code>; <code>db/init.sql</code>; <code>backend/requirements.txt</code>; <code>frontend/package.json</code></td></tr>
+</tbody></table>
+</section>
+</main>
+<button class="print" onclick="window.print()" aria-label="Print this document or save as PDF">Print or save as PDF</button>
+</body>
+</html>

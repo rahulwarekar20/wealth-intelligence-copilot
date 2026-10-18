@@ -1,3 +1,5 @@
+"""Evidence endpoint: the stored evidence items for a ticker."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.db import get_db

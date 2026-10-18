@@ -1,3 +1,9 @@
+"""
+Evidence Agent: gathers market data, news, SEC filings and the user's own
+documents for one ticker, then asks the LLM for supporting and contradicting
+points, each with a citation.
+"""
+
 import re
 from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy.orm import Session, sessionmaker
@@ -22,6 +28,7 @@ def analyze_evidence(ticker: str, query: str, db: Session, user_id: str = "") ->
     # filing text; None for ETFs / non-US issuers) are fetched in parallel,
     # the SEC side on its own DB session since sessions aren't thread-safe
     def fetch_sec():
+        """Fetches SEC evidence on its own DB session, so it can run in a separate thread."""
         if db is None:
             return gather_sec_evidence(ticker, query, db)
         sec_db = sessionmaker(bind=db.get_bind(), autocommit=False, autoflush=False)()

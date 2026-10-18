@@ -1,3 +1,9 @@
+"""
+Copilot endpoints: /ask (natural-language question, routed by the supervisor),
+/query (explicit ticker), /portfolio-strategy, /retirement, /journal (audit
+trail of past recommendations) and /track-record (how past calls played out).
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
@@ -5,33 +11,40 @@ from app.core.db import get_db
 from app.core.security import get_current_user_id
 from app.models.models import Decision
 from app.services.ask_service import answer_question, save_strategy
+from app.services.history_service import track_record
 
 router = APIRouter(prefix="/decisions", tags=["decisions"])
 
 
 class HistoryMessage(BaseModel):
+    """One earlier chat turn sent for context."""
     role: str = Field(pattern="^(user|assistant)$")
     content: str = Field(max_length=4000)
 
 
 class AskQuery(BaseModel):
+    """A natural-language question plus up to 20 earlier turns."""
     query: str = Field(min_length=1, max_length=2000)
     conversation_history: list[HistoryMessage] = Field(default=[], max_length=20)
 
 
 class DecisionQuery(AskQuery):
+    """A question about one explicitly named ticker."""
     ticker: str = Field(min_length=1, max_length=10)
 
 
 class RetirementQuery(AskQuery):
+    """A retirement question (same shape as AskQuery)."""
     pass
 
 
 def _history(messages: list[HistoryMessage]) -> list[dict]:
+    """Converts validated history messages to plain dicts for the agents."""
     return [m.model_dump() for m in messages]
 
 
 def _respond(result: dict) -> dict:
+    """Returns the agent result, or a 502 if the AI failed (never a fake answer)."""
     # Never present (or journal) a fake answer when the AI failed
     if result.get("error"):
         raise HTTPException(status_code=502, detail=result["error"])
@@ -149,3 +162,15 @@ def retirement_analysis(
         db=db,
         history=_history(payload.conversation_history)
     ))
+
+
+@router.get("/track-record")
+def get_track_record(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    Every distinct Buy/Hold/Sell call from the last 180 days with the price
+    then and now, and a verdict: on_track, against, flat, too_early or n/a.
+    """
+    return {"calls": track_record(db, user_id)}

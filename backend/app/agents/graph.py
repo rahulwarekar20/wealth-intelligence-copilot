@@ -1,3 +1,12 @@
+"""
+LangGraph pipeline for a single-stock decision:
+
+    specialists (Portfolio, Evidence, Market Data agents, run in parallel)
+        -> composer (merges their views into one recommendation)
+
+run_decision() is the entry point used by the ask service.
+"""
+
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +23,7 @@ logger = logging.getLogger("wealth-copilot.graph")
 
 
 class DecisionState(TypedDict):
+    """State passed between LangGraph nodes: the question, routing info, and each agent's result."""
     query: str
     ticker: str
     user_id: str
@@ -41,6 +51,7 @@ def specialists_node(state: DecisionState) -> dict:
     ticker, query, user_id, intent = state["ticker"], state["query"], state["user_id"], state["intent"]
 
     def run(agent: str):
+        """Runs one specialist agent on its own DB session; returns (state key, result)."""
         started = time.time()
         worker_db = make_session() if make_session else None
         try:
@@ -63,6 +74,7 @@ def specialists_node(state: DecisionState) -> dict:
 
 
 def composer_node(state: DecisionState) -> dict:
+    """Graph node: merges the specialist agents' results into the final recommendation."""
     logger.info("[Composer] Composing recommendation for %s", state["ticker"])
     result = compose_recommendation(
         query=state["query"],

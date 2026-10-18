@@ -1,9 +1,12 @@
+"""Creates the demo user (test@example.com) with five sample holdings. Run: python -m app.seed"""
+
 from app.core.db import SessionLocal
 from app.models.models import User, Holding
 from app.core.security import hash_password
 
 
 def seed():
+    """Creates the demo user and its sample holdings if they don't exist yet (safe to run repeatedly)."""
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.email == "test@example.com").first()

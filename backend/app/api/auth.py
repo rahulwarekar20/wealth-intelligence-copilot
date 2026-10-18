@@ -1,3 +1,5 @@
+"""Auth endpoints: sign up, log in (both return a JWT), and the current user."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.db import get_db
@@ -9,6 +11,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/signup", response_model=TokenResponse)
 def signup(payload: UserSignup, db: Session = Depends(get_db)):
+    """Creates an account (409 if the email is taken) and returns a login token."""
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
     user = User(
@@ -22,6 +25,7 @@ def signup(payload: UserSignup, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: UserLogin, db: Session = Depends(get_db)):
+    """Checks email and password and returns a JWT; 401 on any mismatch (no hint which was wrong)."""
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -29,6 +33,7 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 def me(user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    """The signed-in user's profile."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

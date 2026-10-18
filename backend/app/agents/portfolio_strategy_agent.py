@@ -1,10 +1,18 @@
+"""
+Portfolio Strategy Agent: analyses every position at once and returns a health
+score, a Buy/Hold/Sell call per position, top risk and opportunity, and ranked
+priority actions.
+"""
+
 import logging
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from sqlalchemy.orm import Session, sessionmaker
 from app.agents.llm_client import invoke_llm_json
 from app.repositories.portfolio_repository import get_holdings
 from app.services.evidence_service import gather_evidence
 from app.services.portfolio_service import value_holdings
+from app.services.profile_service import concentration_flag, describe_other_assets, describe_profile, get_profile
 from app.services.sec_service import build_sources, financial_highlights, get_company_financials
 
 logger = logging.getLogger("wealth-copilot.strategy")
@@ -64,8 +72,10 @@ def run_portfolio_strategy(db: Session, user_id: str) -> dict:
 
     logger.info("[Strategy Agent] Analysing %d holdings", len(holdings))
 
-    # Step 2/3 -- live prices, values and weights
+    # Step 2/3 -- live prices, values and weights, and who the investor is
     raw_positions, total_value, unpriced = value_holdings(holdings)
+    profile = get_profile(db, user_id)
+    limits = profile["limits"]
     positions = _aggregate_by_ticker(raw_positions)
 
     # Step 4 -- gather evidence for each ticker in parallel.
@@ -74,6 +84,7 @@ def run_portfolio_strategy(db: Session, user_id: str) -> dict:
     WorkerSession = sessionmaker(bind=db.get_bind(), autocommit=False, autoflush=False)
 
     def fetch_evidence(ticker: str):
+        """Market evidence plus SEC financials for one ticker, on its own DB session (runs in a thread)."""
         worker_db = WorkerSession()
         try:
             evidence = gather_evidence(ticker, worker_db)
@@ -107,6 +118,9 @@ def run_portfolio_strategy(db: Session, user_id: str) -> dict:
 
     # Step 5 -- build context for the strategy composer
     portfolio_context = f"""
+INVESTOR PROFILE: {describe_profile(profile)}
+OTHER ASSETS (not part of the stock portfolio): {describe_other_assets(db, user_id)}
+
 PORTFOLIO SUMMARY
 Total Value: ${total_value:,.2f}
 Number of Positions: {len(positions)}
@@ -159,8 +173,14 @@ Your job is to produce a clear, actionable strategy for the ENTIRE portfolio —
 a recommendation for every single position plus an overall portfolio assessment.
 
 RULES:
-1. Flag any position with weight > 25% as HIGH concentration risk
-2. Flag any position with weight > 15% as MEDIUM concentration risk
+1. Flag any position with weight above HIGH_LIMIT% as HIGH concentration risk
+2. Flag any position with weight above MEDIUM_LIMIT% as MEDIUM concentration risk
+2b. Fit every recommendation to the INVESTOR PROFILE: conservative or short-horizon investors need
+    more caution and diversification; aggressive, long-horizon investors can tolerate more volatility.
+    Mention cash in OTHER ASSETS when suggesting buys (it can fund them).
+2c. Broad index ETFs (e.g. SPY, VOO, VTI, QQQ) are already diversified across hundreds of companies:
+    a large weight in one is far less risky than the same weight in a single stock — say so rather
+    than treating it like single-stock concentration.
 3. Consider gain/loss % when recommending sell (lock in gains or cut losses)
 4. Consider sentiment and trend when recommending buy
 5. Consider portfolio balance — don't recommend buying more of already overweight positions
@@ -199,6 +219,10 @@ Respond in this EXACT JSON format with no other text:
   ]
 }"""
 
+    system_prompt = (system_prompt
+                     .replace("HIGH_LIMIT", f"{limits['high']:g}")
+                     .replace("MEDIUM_LIMIT", f"{limits['medium']:g}"))
+
     user_prompt = f"""Analyse this portfolio and provide a strategy for every position:
 
 {portfolio_context}
@@ -231,16 +255,21 @@ Respond with JSON only — no other text."""
     if not isinstance(result.get("priority_actions"), list):
         result["priority_actions"] = []
 
-    # Attach live data to each position result -- the real weights override the model's
+    # Attach live data to each position result -- the real weights override the
+    # model's, and the concentration flag is computed from them with the user's
+    # limits rather than trusted from the model (which sometimes invents values)
     position_map = {p["ticker"]: p for p in positions}
     for pos_result in result["positions"]:
         live = position_map.get(pos_result.get("ticker"))
         if live:
             for key in ("current_price", "current_value", "quantity", "gain_loss_pct", "weight_pct"):
                 pos_result[key] = live[key]
+            pos_result["concentration_flag"] = concentration_flag(live["weight_pct"], limits)
 
     result["total_value"] = round(total_value, 2)
     result["position_count"] = len(positions)
     result["unpriced_tickers"] = unpriced
+    result["limits"] = limits
+    result["generated_at"] = datetime.now(timezone.utc).isoformat()
     result["sources"] = [s for p in positions for s in evidence_by_ticker.get(p["ticker"], {}).get("sec_sources", [])]
     return result

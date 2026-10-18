@@ -81,3 +81,17 @@ def auth_client(client):
     token = response.json()["access_token"]
     client.headers.update({"Authorization": f"Bearer {token}"})
     return client
+
+
+@pytest.fixture(scope="function")
+def db_session(client):
+    """A session on the (freshly reset) test database, for calling services directly."""
+    session = TestingSessionLocal()
+    yield session
+    session.close()
+
+
+@pytest.fixture(scope="function")
+def user_id(auth_client):
+    """Id of the user that auth_client is signed in as."""
+    return auth_client.get("/auth/me").json()["id"]

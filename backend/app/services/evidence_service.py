@@ -1,3 +1,9 @@
+"""
+Evidence gathering from Finnhub: company news (with headline sentiment),
+fundamentals and price trend. Results are cached in the database for
+EVIDENCE_FRESHNESS to limit API calls.
+"""
+
 import re
 import httpx
 import time
@@ -47,6 +53,7 @@ def score_headlines(headlines: list[str]) -> tuple[str, float]:
 
 
 def _fresh_payload(db: Session, ticker: str, source_type: str):
+    """Cached payload for a ticker and source if fetched within EVIDENCE_FRESHNESS, else None."""
     item = get_latest_evidence(db, ticker, source_type)
     if item and item.retrieved_at and datetime.now(timezone.utc) - item.retrieved_at < EVIDENCE_FRESHNESS:
         return item.payload
@@ -54,6 +61,7 @@ def _fresh_payload(db: Session, ticker: str, source_type: str):
 
 
 def fetch_company_news(ticker: str, db: Session) -> dict:
+    """Last 7 days of Finnhub headlines with a keyword sentiment score; cached. Neutral result on failure."""
     cached = _fresh_payload(db, ticker, "sentiment")
     if cached is not None:
         return cached
@@ -116,6 +124,7 @@ def fetch_company_news(ticker: str, db: Session) -> dict:
 
 
 def fetch_company_fundamentals(ticker: str, db: Session) -> dict:
+    """Finnhub company profile and key metrics (P/E, margins, growth, 52-week range); cached. {'error'} on failure."""
     cached = _fresh_payload(db, ticker, "filing")
     if cached is not None:
         return cached
@@ -158,6 +167,7 @@ def fetch_company_fundamentals(ticker: str, db: Session) -> dict:
 
 
 def fetch_price_trend(ticker: str, db: Session) -> dict:
+    """Today's Finnhub quote with a bullish / bearish / neutral trend label; cached. {'error'} on failure."""
     cached = _fresh_payload(db, ticker, "price_volume")
     if cached is not None:
         return cached
@@ -209,6 +219,7 @@ def fetch_price_trend(ticker: str, db: Session) -> dict:
 
 
 def gather_evidence(ticker: str, db: Session) -> dict:
+    """Price trend, news sentiment, fundamentals and stored evidence items for a ticker, in one dict."""
     ticker = ticker.upper()
 
     price_data = fetch_price_trend(ticker, db)
