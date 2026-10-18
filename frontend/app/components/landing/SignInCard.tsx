@@ -5,9 +5,9 @@
  * On success it stores the token, clears any previous user's session data and
  * opens the dashboard. Clicking the demo box fills in the demo credentials.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getErrorMessage, login, signup } from "@/lib/api";
+import { LOGOUT_REASON_KEY, getErrorMessage, login, signup } from "@/lib/api";
 import { clearSessionStore } from "@/lib/sessionStore";
 import Callout from "../ui/Callout";
 import { IconArrowRight } from "../ui/Icons";
@@ -25,6 +25,18 @@ export default function SignInCard({ emailRef }: { emailRef: React.RefObject<HTM
   const [loading, setLoading] = useState(false);
 
   const isSignup = mode === "signup";
+
+  // If the user was signed out because their session expired, say so (once)
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(LOGOUT_REASON_KEY) === "expired") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- reads browser storage once on mount
+        setExpired(true);
+        localStorage.removeItem(LOGOUT_REASON_KEY);
+      }
+    } catch {}
+  }, []);
 
   const handleSubmit = async () => {
     if (!email.trim() || !password) {
@@ -73,6 +85,12 @@ export default function SignInCard({ emailRef }: { emailRef: React.RefObject<HTM
       <p className="mt-1 text-sm text-ink-600">
         {isSignup ? "Free to try. Takes less than a minute." : "Sign in to your portfolio and copilot."}
       </p>
+
+      {expired && (
+        <Callout tone="note" className="mt-4 py-2">
+          Your session expired after a period of inactivity. Please sign in again.
+        </Callout>
+      )}
 
       <form className="mt-6 space-y-4" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <label className="block">

@@ -72,6 +72,8 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
+    # Lets the browser read renewed session tokens (see core/security.py)
+    expose_headers=["X-Refreshed-Token"],
 )
 
 # ── Security Headers Middleware ──────────────────────────────────

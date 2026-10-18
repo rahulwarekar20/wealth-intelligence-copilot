@@ -3,6 +3,7 @@
 /**
  * One chat message: the user's question (dark bubble, right), a plain-text
  * reply (light card, left), a structured answer card, or the waiting indicator.
+ * Failed and interrupted answers get a "Try again" button.
  */
 import { useEffect, useState } from "react";
 import type { ChatMessage } from "@/lib/useChat";
@@ -31,7 +32,25 @@ function PendingBubble() {
   );
 }
 
-export default function MessageBubble({ message, interrupted }: { message: ChatMessage; interrupted: boolean }) {
+/** "Try again" button under a failed or interrupted answer. */
+function RetryButton({ question, onRetry }: { question: string; onRetry?: (question: string) => void }) {
+  if (!onRetry) return null;
+  return (
+    <button onClick={() => onRetry(question)} className="btn-secondary mt-3 px-3.5 py-1.5 text-sm">
+      Try again
+    </button>
+  );
+}
+
+export default function MessageBubble({
+  message,
+  interrupted,
+  onRetry,
+}: {
+  message: ChatMessage;
+  interrupted: boolean;
+  onRetry?: (question: string) => void;
+}) {
   const isUser = message.role === "user";
 
   let body: React.ReactNode;
@@ -42,7 +61,8 @@ export default function MessageBubble({ message, interrupted }: { message: ChatM
   } else if (message.pending) {
     body = (
       <div className="card max-w-3xl px-5 py-3.5 text-[15px] text-ink-700">
-        This question was interrupted because the page reloaded. Please ask it again.
+        This question was interrupted because the page reloaded.
+        {message.retry && <div><RetryButton question={message.retry} onRetry={onRetry} /></div>}
       </div>
     );
   } else {
@@ -53,6 +73,7 @@ export default function MessageBubble({ message, interrupted }: { message: ChatM
         }`}
       >
         {message.content}
+        {message.retry && <div><RetryButton question={message.retry} onRetry={onRetry} /></div>}
       </div>
     );
   }

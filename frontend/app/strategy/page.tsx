@@ -25,12 +25,13 @@ export default function StrategyPage() {
   useRequireAuth();
   // Shared with the Dashboard: a result or a run already in progress there is reused here
   const { strategy, running: loading, error, run } = useStrategy();
-  const runStrategy = () => run();
+  // The Refresh and Try again buttons always run a new analysis
+  const runStrategy = () => run(true);
 
   // Start automatically when there's no saved result (a failed run waits for "Try again")
   useEffect(() => {
     if (strategy || loading || error) return;
-    const timer = setTimeout(run, 0);
+    const timer = setTimeout(() => run(), 0);
     return () => clearTimeout(timer);
   }, [strategy, loading, error, run]);
 

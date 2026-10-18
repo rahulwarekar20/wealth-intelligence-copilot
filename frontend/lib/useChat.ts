@@ -1,8 +1,9 @@
 /**
- * useChat: the Ask Copilot conversation — messages, sending a question, and
- * starting a new chat. Messages are kept for the browser session, so the chat
- * survives switching pages.
+ * useChat: the Ask Copilot conversation — messages, sending a question,
+ * retrying a failed one, and starting a new chat. Messages are kept for the
+ * browser session, so the chat survives switching pages.
  */
+import axios from "axios";
 import { askCopilot, getErrorMessage } from "./api";
 import { answerToText, toHistory, type CopilotAnswer } from "./chatSession";
 import { useSessionState } from "./sessionStore";
@@ -16,7 +17,13 @@ export interface ChatMessage {
   answer?: CopilotAnswer;
   /** Placeholder while the answer is being generated. */
   pending?: boolean;
+  /** On a failed or interrupted answer: the question, so it can be asked again. */
+  retry?: string;
 }
+
+// Shown when the request never reached the server or the connection dropped mid-answer
+const CONNECTION_LOST =
+  "The connection to the server was lost before the answer arrived. Check your connection and try again.";
 
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
@@ -43,14 +50,27 @@ export function useChat() {
   // A pending answer with no request behind it means the page was reloaded mid-answer
   const interrupted = hasPending && !requestInFlight;
 
-  const ask = async (question: string) => {
+  /**
+   * Sends a question. With `isRetry`, the failed attempt (the question and its
+   * error, or an interrupted placeholder) is replaced instead of repeated.
+   */
+  const ask = async (question: string, isRetry = false) => {
     const query = question.trim();
     if (!query || loading) return;
+
+    // Drop the failed attempt being retried: its error reply and its question
+    const dropFailed = (list: ChatMessage[]) => {
+      if (!isRetry) return list;
+      const trimmed = [...list];
+      if (trimmed.length && (trimmed[trimmed.length - 1].retry || trimmed[trimmed.length - 1].pending)) trimmed.pop();
+      if (trimmed.length && trimmed[trimmed.length - 1].role === "user") trimmed.pop();
+      return trimmed;
+    };
 
     // Structured answers are converted to text so the backend keeps the context
     // (e.g. which stock "it" refers to, or the age/income already given)
     const history = toHistory(
-      messages.slice(1).filter((m) => !m.pending).map((m) => ({
+      dropFailed(messages).slice(1).filter((m) => !m.pending && !m.retry).map((m) => ({
         role: m.role,
         content: m.answer ? answerToText(m.answer) : m.content,
       })),
@@ -59,9 +79,10 @@ export function useChat() {
 
     requestInFlight = true;
     setMessages((prev) => [
-      ...prev.filter((m) => !m.pending),
+      ...dropFailed(prev).filter((m) => !m.pending),
       { role: "user", content: query },
-      { role: "assistant", content: "", pending: true },
+      // `retry` survives a page reload, so an interrupted question can be asked again
+      { role: "assistant", content: "", pending: true, retry: query },
     ]);
 
     try {
@@ -72,7 +93,8 @@ export function useChat() {
           : { role: "assistant", content: "", answer: data };
       setMessages((prev) => [...prev.filter((m) => !m.pending), reply]);
     } catch (err) {
-      setMessages((prev) => [...prev.filter((m) => !m.pending), { role: "assistant", content: getErrorMessage(err) }]);
+      const content = axios.isAxiosError(err) && !err.response ? CONNECTION_LOST : getErrorMessage(err);
+      setMessages((prev) => [...prev.filter((m) => !m.pending), { role: "assistant", content, retry: query }]);
     } finally {
       requestInFlight = false;
     }

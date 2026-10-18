@@ -35,13 +35,14 @@ export function useStrategy() {
   const running = status.state === "running" && requestActive;
   const error = status.state === "error" ? status.message ?? "Analysis failed." : "";
 
-  const run = useCallback(() => {
+  /** Loads the strategy; `refresh` forces a new analysis instead of reusing a recent one. */
+  const run = useCallback((refresh = false) => {
     if (inFlight) return inFlight;
     requestActive = true;
     setStatus({ state: "running" });
     inFlight = (async () => {
       try {
-        const data = await getPortfolioStrategy();
+        const data = await getPortfolioStrategy(refresh);
         if (data.no_holdings) {
           setStrategy(null);
           setStatus({ state: "error", message: "Add some holdings to analyse your portfolio." });

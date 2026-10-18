@@ -36,10 +36,14 @@ export function getToken(): string | null {
 }
 
 /** Signs out: forgets the token and session data, then returns to the landing page. */
-export function logout() {
+/** Key remembering why the user was signed out, shown once on the login page. */
+export const LOGOUT_REASON_KEY = "logout_reason";
+
+export function logout(reason?: "expired") {
   try {
     localStorage.removeItem("token");
     sessionStorage.clear();
+    if (reason) localStorage.setItem(LOGOUT_REASON_KEY, reason);
   } catch {}
   clearSessionStore();
   window.location.href = "/";
@@ -54,13 +58,21 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// An expired or invalid token logs the user out instead of failing silently
+// Keep active sessions alive: the backend sends a renewed token once a session
+// passes half its lifetime. An expired or invalid token signs the user out, and
+// the login page explains why.
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const renewed = response.headers?.["x-refreshed-token"];
+    if (typeof renewed === "string" && renewed) {
+      try { localStorage.setItem("token", renewed); } catch {}
+    }
+    return response;
+  },
   (error: AxiosError) => {
     const isAuthCall = error.config?.url?.startsWith("/auth/login") || error.config?.url?.startsWith("/auth/signup");
     if (error.response?.status === 401 && !isAuthCall && typeof window !== "undefined") {
-      logout();
+      logout("expired");
     }
     return Promise.reject(error);
   }
@@ -136,8 +148,9 @@ export const askCopilot = async (query: string, history: ChatTurn[] = []) => {
 };
 
 /** GET /decisions/portfolio-strategy — AI strategy for every position (10–20 s). */
-export const getPortfolioStrategy = async () => {
-  const response = await api.get<PortfolioStrategy>("/decisions/portfolio-strategy");
+export const getPortfolioStrategy = async (refresh = false) => {
+  // Without refresh, the backend may return a strategy saved in the last 30 minutes
+  const response = await api.get<PortfolioStrategy>("/decisions/portfolio-strategy", { params: refresh ? { refresh } : {} });
   return response.data;
 };
 
