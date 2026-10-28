@@ -208,8 +208,10 @@ SEC data covers SEC-registered companies. ETFs such as SPY and some foreign issu
 
 ### Guardrails
 
-- **Evidence diversity score**: measures how much the agents agree. Below 0.4, confidence is capped and "Agents disagree" is shown. This is enforced in code, not just in the prompt.
-- **Citations**: every key point carries its source, and the figures shown come straight from the data feeds, never from the LLM.
+- **Signals measured three ways, not averaged**: each specialist's view is kept as *direction* (net lean, bearish to bullish), *agreement* (do they point the same way?) and *coverage* (did every specialist asked to run return a signal?). Unanimous bearish signals count as agreement, so a confident Sell is possible; bullish against bearish is disagreement even when it averages out to neutral; and a failed specialist is reported as missing evidence, not as disagreement.
+- **Confidence caps enforced in code**: genuine disagreement caps confidence at 0.4 and shows "Agents disagree"; missing requested evidence (or no usable signals) caps it at 0.5 and says what's missing. A question that only needs one specialist is not penalised, but is marked "not cross-checked".
+- **Citations verified per specialist**: every point must cite a source its specialist actually retrieved: a 10-K section that was pulled, SEC financials that were available, market data, news, portfolio data, or a matched document. A point attributed to one agent but citing another's source fails. Unverified evidence signals are withheld from the composer; unverified points in the answer are marked "unverified" with the reason; and if more than a third fail, confidence is capped. Withheld citations are journaled for audit.
+- **Figures from data**: the figures shown come straight from the data feeds, never from the LLM.
 - **Numbers the AI can't override**: position weights and High/Medium/Low concentration levels are computed in code from live prices and your limits; the AI's own guesses are replaced.
 - **No fake answers**: if the AI fails, you get a clear error. A placeholder recommendation is never shown or logged.
 - **You stay in control of your data**: imported holdings are only saved after you review and confirm them.
@@ -251,7 +253,7 @@ SEC data covers SEC-registered companies. ETFs such as SPY and some foreign issu
 
 ## Tests
 
-**212 tests: 113 backend + 99 frontend.** Before deploying, run everything with one command from the project root (stop `npm run dev` first, since the build writes to the same `.next` folder):
+**259 tests: 148 backend + 111 frontend.** Before deploying, run everything with one command from the project root (stop `npm run dev` first, since the build writes to the same `.next` folder):
 
     check.bat
 
@@ -266,7 +268,7 @@ The backend tests run against a **separate** `wealth_copilot_test` database, whi
 | test_auth.py | 9 | Signup, login, JWT validation, protected routes |
 | test_portfolio.py | 7 | Holdings CRUD, data isolation between users |
 | test_security.py | 5 | Token validation, SQL injection, input validation |
-| test_guardrails.py | 6 | Evidence diversity scorer and confidence guardrail |
+| test_guardrails.py | 30 | Direction / agreement / coverage, confidence caps, per-specialist citation checks, composer end to end |
 | test_decisions.py | 13 | Journal, evidence endpoints, cross-user security |
 | test_sec.py | 7 | SEC parsing: annual figures, stale tags, 10-K sections, passage selection |
 | test_fixes.py | 24 | Copilot routing (tickers, comparisons, clarifications), documents, LLM retries and rate limits |
@@ -277,6 +279,8 @@ The backend tests run against a **separate** `wealth_copilot_test` database, whi
 | test_history.py | 8 | Strategy changes, track-record verdicts and condensing of repeated calls |
 | test_import.py | 10 | Broker CSV formats, AI fallback for PDFs, preview → confirm, validation |
 | test_personalisation.py | 2 | Profile and other assets reach the strategy and retirement agents |
+| test_strategy_reuse.py | 7 | Unchanged portfolios reuse a recent strategy; changes, age and Refresh trigger a new run |
+| test_session.py | 4 | Sessions renew past half-life; expired tokens are rejected; renewal header exposed via CORS |
 
     cd backend
     venv\Scripts\activate
@@ -293,7 +297,8 @@ Tests sit next to the code they cover (`*.test.ts` / `*.test.tsx`) and run in a 
 | Profile | Profile form, other assets |
 | Alerts / Track record | Alert questions and read state, verdict labels and summary |
 | Analyse Portfolio | Position cards, recommendation-mix donut, "since your last analysis" note |
-| Landing / chat | Sign-in and sign-up flow, demo credentials, chat messages and answer cards |
+| Landing / chat | Sign-in and sign-up flow, expired-session message, chat messages, Try again on failed answers |
+| Answer card | Unverified-citation marking, confidence notes, signal summary (agreement, direction, coverage) |
 | Donut chart | Legend values, hover and keyboard focus, accessibility labels |
 
     cd frontend

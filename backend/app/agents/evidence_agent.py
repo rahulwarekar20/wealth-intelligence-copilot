@@ -141,7 +141,9 @@ Respond with JSON only, no other text."""
         "sec_highlights": sec["highlights"] if sec else None,
         "sec_financials_text": sec["financials_text"] if sec else None,
         "company": (sec or {}).get("company") or fundamentals.get("company_name"),
-        "documents_used": sorted({d["document"] for d in doc_excerpts})
+        "documents_used": sorted({d["document"] for d in doc_excerpts}),
+        # Exactly which 10-K sections were retrieved, so citations can be verified later
+        "passage_citations": [p["citation"] for p in sec["passages"]] if sec else [],
     }
 
     try:

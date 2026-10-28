@@ -1,7 +1,7 @@
 import pytest
 from app.agents.llm_client import parse_json_response
 from app.services.evidence_service import score_headlines
-from app.agents.recommendation_composer import compute_diversity_score
+from app.agents.guardrails import assess_signals
 
 
 def test_llm_rate_limit_raises(monkeypatch):
@@ -90,12 +90,14 @@ def test_sentiment_counts_every_headline():
     assert score > 0
 
 
-def test_diversity_ignores_agents_that_did_not_run():
-    """T45 - Skipped/failed agents are not counted as disagreement"""
-    score = compute_diversity_score({}, {}, {"market_signal": "bullish"})
-    assert score == 1.0
-    score = compute_diversity_score({"concentration_flag": "UNKNOWN"}, {"error": "x"}, {"market_signal": "bullish"})
-    assert score == 1.0
+def test_failed_agents_reduce_coverage_not_agreement():
+    """T45 - Failed agents are missing evidence, not disagreement; one signal alone is not 'agreement'"""
+    a = assess_signals({"concentration_flag": "UNKNOWN"}, {"error": "x"}, {"market_signal": "bullish"})
+    assert a["agreement"] is None
+    assert a["coverage"] == 0.33
+    assert a["missing"] == ["portfolio_agent", "evidence_agent"]
+    skipped = assess_signals({}, {}, {"market_signal": "bullish"}, agents_needed=["market_data_agent"])
+    assert skipped["coverage"] == 1.0 and skipped["missing"] == []
 
 
 def test_delete_holding_malformed_id_returns_404(auth_client):
