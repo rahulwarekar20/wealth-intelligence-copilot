@@ -82,7 +82,8 @@ def composer_node(state: DecisionState) -> dict:
         intent=state["intent"],
         portfolio_result=state.get("portfolio_result") or {},
         evidence_result=state.get("evidence_result") or {},
-        market_result=state.get("market_result") or {}
+        market_result=state.get("market_result") or {},
+        agents_needed=state.get("agents_needed"),
     )
     return {"recommendation": result}
 

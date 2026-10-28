@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Week 3 doc</title>
+<!-- Source for "Week 3 doc.pdf". Rebuild: chrome --headless --print-to-pdf="Week 3 doc.pdf" "Week 3 doc.html" -->
+<style>
+  @page { size: A4; margin: 18mm 18mm 16mm; }
+  :root { --paper:#fbf8f2; --ink:#1c1a17; --muted:#6b645a; --gold:#a8812f; --line:#e6dfd2; --soft:#f4efe4; }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 10.5pt/1.55 "Segoe UI", system-ui, sans-serif; color:var(--ink); background:#fff; }
+  h1 { font: 600 24pt/1.15 Georgia, serif; margin:0 0 4px; }
+  h2 { font: 600 14pt/1.2 Georgia, serif; margin:22px 0 8px; padding-bottom:4px; border-bottom:1px solid var(--line); }
+  .eyebrow { color:var(--gold); font-size:8.5pt; letter-spacing:.14em; text-transform:uppercase; font-weight:600; }
+  .meta { color:var(--muted); font-size:9pt; margin-bottom:18px; }
+  .primer { background:var(--paper); border-left:4px solid var(--gold); padding:14px 18px; font: 11.5pt/1.6 Georgia, serif; margin:0; }
+  .primer b { color:#5a4415; }
+  p { margin:6px 0; }
+  ul { margin:6px 0; padding-left:18px; } li { margin:3px 0; }
+  table { width:100%; border-collapse:collapse; font-size:9.5pt; margin-top:6px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { background:var(--soft); font-weight:600; }
+  .rule { font-weight:600; margin-top:12px; }
+  .tag { display:inline-block; font-size:8pt; font-weight:600; padding:1px 7px; border-radius:9px; margin-right:4px; }
+  .read { background:#e6f1e8; color:#2f6b3a; } .human { background:#f6ead0; color:#7a5a12; } .never { background:#f6dede; color:#8a2c2c; }
+  .card td { font-size:9.5pt; } .card .tag { margin:1px 2px 1px 0; }
+  ol.steps { margin:0; padding-left:16px; } ol.steps li { margin:1px 0; }
+  .note { color:var(--muted); font-size:9pt; }
+  footer { margin-top:24px; color:var(--muted); font-size:8.5pt; border-top:1px solid var(--line); padding-top:6px; }
+</style>
+</head>
+<body>
+
+<div class="eyebrow">Wealth Intelligence Copilot · Week 3</div>
+<h1>Agent primer</h1>
+<div class="meta">The agent in one sentence, its design card, and how it meets the three rules</div>
+
+<!-- 1. The one-liner -->
+<h2>1. The one-liner</h2>
+<p class="primer">
+  My agent helps <b>a self-directed investor</b> decide whether to <b>buy, hold, trim or sell a position</b> in
+  <b>a web app (desktop and phone)</b>, replacing <b>the hours of reading 10-K filings, checking quotes and news, and
+  updating a spreadsheet of position sizes it takes to make one informed decision today</b>.
+  It resolves the company, reads the relevant 10-K sections and SEC financials, checks today's price action and news,
+  weighs the position against the investor's own holdings, risk profile and concentration limit, and returns a cited
+  recommendation on its own using <b>5 tools</b>. It hands off to the investor <b>before anything is written to their
+  portfolio, and whenever its specialists disagree or evidence is missing</b>. It never places a trade.
+  I'll know it works when an investor can <b>go from question to a decision they would act on</b> in under
+  <b>2 minutes</b>, with <b>every cited point traceable to its source, 8 times out of 10</b>.
+</p>
+<p class="note" style="margin-top:8px">The five tools: SEC EDGAR (XBRL financials and 10-K text), Finnhub (quotes, news,
+  fundamentals, earnings calendar), portfolio valuation, private-document search, and the investor profile with other assets.</p>
+
+<!-- 2. Agent design card -->
+<h2>2. Agent design card</h2>
+<table class="card">
+  <tr><th style="width:26%">Field</th><th>Fill in</th></tr>
+  <tr><td><b>Agent goal</b></td>
+      <td>Takes an investor's question about a stock or their portfolio and returns a cited buy / hold / trim / sell recommendation that fits their own holdings and risk profile.</td></tr>
+  <tr><td><b>Where do people use it?</b></td>
+      <td>A web app (desktop and phone browser): chat with the copilot, plus dashboard pages for portfolio, strategy, alerts and the decision journal.</td></tr>
+  <tr><td><b>What steps does it take, in order?</b></td>
+      <td><ol class="steps">
+        <li>Supervisor reads the question and recent turns, resolves the company and picks which specialists are needed.</li>
+        <li>Specialists run in parallel: portfolio (position size, concentration), evidence (10-K sections, SEC financials, news, private documents), market data (price, momentum).</li>
+        <li>Guardrails check each specialist's citations and measure direction, agreement and coverage.</li>
+        <li>Composer writes the answer with key points, sources and a confidence that code caps when evidence conflicts or is missing.</li>
+        <li>The answer is journaled and shown; the investor decides what to do.</li>
+      </ol></td></tr>
+  <tr><td><b>What can it actually do?</b></td>
+      <td><span class="tag read">Look-up</span> SEC EDGAR filings and XBRL financials ·
+          <span class="tag read">Look-up</span> Finnhub quotes, news and earnings ·
+          <span class="tag read">Look-up</span> portfolio valuation and concentration ·
+          <span class="tag read">Look-up</span> search of the investor's uploaded documents ·
+          <span class="tag read">Look-up</span> investor profile and other assets ·
+          <span class="tag human">Changes</span> appends its decisions and alerts to the journal (its own audit log only).</td></tr>
+  <tr><td><b>What does it need to remember?</b></td>
+      <td>Within a session, the last 12 chat turns (so "should I trim it?" knows what "it" is). Across sessions: holdings, risk profile, other assets, every past decision with its price at the time, and the latest strategy (reused for 30 min).</td></tr>
+  <tr><td><b>What should it never do?</b></td>
+      <td>Never place trades or move money, never change holdings or the profile without the investor confirming, never show one user's portfolio to another, and never present a figure or source it didn't actually retrieve as verified.</td></tr>
+  <tr><td><b>Human-in-the-loop</b></td>
+      <td>Before any write: holdings, imports (row-by-row preview, then confirm) and profile changes need the investor's approval. Final approval: every recommendation is advice the investor acts on themselves. Answers with disagreeing or missing evidence show capped confidence and the reason. The investor can intervene with a follow-up question, Try again, Refresh strategy, or by editing holdings.</td></tr>
+  <tr><td><b>What happens when something breaks?</b></td>
+      <td>Short LLM rate limits are retried automatically, and a malformed reply is retried once. If a data source or specialist fails, the answer still arrives but names what's missing and caps confidence at 0.5. If the whole answer fails, the chat shows the error with a Try again button, and an expired session sends the user to sign in again with a message saying why.</td></tr>
+  <tr><td><b>How do you know it worked?</b></td>
+      <td>The investor goes from question to a decision they would act on in under 2 minutes, with every cited point verified, 8 times out of 10.</td></tr>
+</table>
+
+<!-- 3. Rule 1 -->
+<h2>3. Rule 1: task completion, not single-shot accuracy</h2>
+<p>Success is the investor reaching a decision, often over several turns ("What are Microsoft's biggest risks?" →
+  "Should I trim it?"), not one good model answer. It is measured end to end:</p>
+<ul>
+  <li><b>Time to decision:</b> from the first question to the final answer.</li>
+  <li><b>Citation integrity:</b> share of answers with every citation verified. The backend already records verified,
+    cited and withheld counts on each answer.</li>
+  <li><b>Outcome:</b> whether the call holds up afterwards. The track record compares the price at the decision with today's.</li>
+</ul>
+
+<!-- 4. Rule 2 -->
+<h2>4. Rule 2: state is the hard part</h2>
+<table>
+  <tr><th>What it remembers</th><th>For how long</th><th>Where</th></tr>
+  <tr><td>Conversation (last 12 turns sent; the supervisor uses 6)</td><td>The browser tab; cleared on sign-out</td><td>Session storage</td></tr>
+  <tr><td>Holdings, investor profile, other assets</td><td>Until the user changes them</td><td>PostgreSQL</td></tr>
+  <tr><td>Every recommendation and strategy (decision journal)</td><td>Permanent; the track record covers 180 days</td><td>PostgreSQL</td></tr>
+  <tr><td>Latest portfolio strategy</td><td>Reused for 30 min unless holdings, profile or assets change</td><td>PostgreSQL (journal)</td></tr>
+  <tr><td>Alerts</td><td>Permanent, never duplicated</td><td>PostgreSQL</td></tr>
+  <tr><td>Market and filing data</td><td>Prices 5 min, evidence 10 min, SEC facts 24&nbsp;h</td><td>Memory / PostgreSQL caches</td></tr>
+  <tr><td>Sign-in session</td><td>60 min idle; renewed while active</td><td>Signed token</td></tr>
+</table>
+
+<!-- 5. Rule 3 -->
+<h2>5. Rule 3: write actions deserve a human</h2>
+<p class="rule"><span class="tag read">Autonomous</span>Reads</p>
+<p>Filings, quotes, news, portfolio valuation, document search, alert checks.</p>
+<p class="rule"><span class="tag human">Human-approved</span>Writes</p>
+<ul>
+  <li>Adding or removing holdings.</li>
+  <li>Broker imports: previewed row by row, with a second confirmation before holdings are <i>replaced</i>.</li>
+  <li>Saving the profile and other assets.</li>
+</ul>
+<p class="rule"><span class="tag never">Never</span>Trades</p>
+<p>Every Buy or Sell is advice the investor carries out elsewhere.</p>
+<p class="note">The one autonomous write: the agent appends its own decisions and alerts to the journal. That's an
+  internal audit log, not a change to anything the user owns.</p>
+
+<!-- 6. Measured vs targets -->
+<h2>6. What's measured and what's a target</h2>
+<table>
+  <tr><th>Figure</th><th>Status</th><th>Next step</th></tr>
+  <tr><td>About 6–7 seconds per answer</td><td>Measured</td><td>—</td></tr>
+  <tr><td>Every citation verified on the live test answers</td><td>Measured</td><td>Keep tracking via the per-answer citation check</td></tr>
+  <tr><td>"Hours" for the manual workflow</td><td>Assumption</td><td>Time one decision with two or three real investors</td></tr>
+  <tr><td>Under 2 minutes, 8 times out of 10</td><td>Target</td><td>Add a "Would you act on this?" thumbs up/down to each answer</td></tr>
+</table>
+
+<footer>Wealth Intelligence Copilot · Week 3 primer · October 2026</footer>
+</body>
+</html>

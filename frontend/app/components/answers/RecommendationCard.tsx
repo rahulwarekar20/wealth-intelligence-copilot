@@ -1,25 +1,52 @@
 /**
  * Single-stock answer card: the Buy/Hold/Sell call, confidence, direct answer,
  * key points with filing citations, key figures, the reasoning behind the call
- * (positives vs risks) and sources.
+ * (positives vs risks), how the specialists' signals line up, and sources.
+ * Citations the backend couldn't match to a retrieved source are marked
+ * "unverified", and any reason confidence was capped is shown.
  *
  * `compact` renders the narrower variant used side by side in comparisons;
  * `preferred` highlights the stronger pick in a comparison.
  */
-import type { EvidencePoint, StockMetrics, TickerRecommendation } from "@/lib/types";
+import type { EvidencePoint, SignalAssessment, StockMetrics, TickerRecommendation } from "@/lib/types";
 import { actionColor, formatCompactMoney, formatMoney, formatPct, shortCitation } from "@/lib/ui";
 import SourceList from "./SourceList";
 
-/** Small grey tag naming the filing section a point came from, e.g. "10-K · Item 1A". */
-function CitationChip({ citation, ticker }: { citation?: string; ticker: string }) {
-  if (!citation) return null;
+/**
+ * Small tag naming the source a point came from, e.g. "10-K · Item 1A".
+ * Red and labelled "unverified" when the backend couldn't match it to a retrieved source.
+ */
+function CitationChip({ point, ticker }: { point: EvidencePoint; ticker: string }) {
+  const unverified = point.citation_verified === false;
+  if (!point.citation && !unverified) return null;
+  const label = point.citation ? shortCitation(point.citation, ticker) : "no source";
   return (
     <span
-      title={citation}
-      className="ml-2 inline-block align-middle rounded-md bg-paper-200 px-1.5 py-0.5 text-[11px] font-medium text-ink-600 whitespace-nowrap"
+      title={unverified ? `Unverified: ${point.citation_issue || "source not found"}` : point.citation}
+      className={`ml-2 inline-block align-middle rounded-md px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${
+        unverified ? "border border-brick-200 bg-brick-50 text-brick-600" : "bg-paper-200 text-ink-600"
+      }`}
     >
-      {shortCitation(citation, ticker)}
+      {unverified ? `unverified · ${label}` : label}
     </span>
+  );
+}
+
+/** One line summarising the specialists' signals: coverage, agreement, direction, citations. */
+function SignalSummary({ a, check }: { a?: SignalAssessment; check?: TickerRecommendation["citation_check"] }) {
+  if (!a) return null;
+  const agreement =
+    a.agreement === null ? "agreement n/a" : a.agreement >= 0.75 ? "agree" : a.agreement >= 0.5 ? "partly agree" : "disagree";
+  const parts = [
+    `${a.signals_available} of ${a.signals_requested} specialists`,
+    agreement,
+    a.direction_label ? `lean ${a.direction_label}` : null,
+    check && check.cited ? `${check.verified} of ${check.cited} citations verified` : null,
+  ].filter(Boolean);
+  return (
+    <p className="mt-3 border-t border-paper-200 pt-2 text-xs text-ink-500" title="Direction, agreement and coverage are measured separately">
+      Signals: {parts.join(" · ")}
+    </p>
   );
 }
 
@@ -84,7 +111,7 @@ function PointList({ points, ticker, bullet }: { points?: EvidencePoint[]; ticke
           <span className={`mt-0.5 shrink-0 ${bullet}`}>●</span>
           <span>
             {p.point}
-            <CitationChip citation={p.citation} ticker={ticker} />
+            <CitationChip point={p} ticker={ticker} />
           </span>
         </li>
       ))}
@@ -167,6 +194,13 @@ export default function RecommendationCard({
       {/* Direct answer to the question */}
       <p className="text-[15px] leading-relaxed text-ink-800">{rec.answer || rec.summary}</p>
 
+      {/* Why confidence was capped, if it was */}
+      {(rec.confidence_notes?.length ?? 0) > 0 && (
+        <ul className="space-y-0.5 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2 text-xs text-gold-700">
+          {rec.confidence_notes!.map((n) => <li key={n}>{n}</li>)}
+        </ul>
+      )}
+
       <PointList points={rec.key_points} ticker={rec.ticker} bullet="text-gold-500 text-[8px]" />
 
       <MetricTiles m={rec.metrics} />
@@ -191,6 +225,7 @@ export default function RecommendationCard({
             </div>
           </div>
         )}
+        <SignalSummary a={rec.signal_assessment} check={rec.citation_check} />
       </details>
 
       {(rec.sources?.length ?? 0) > 0 && (

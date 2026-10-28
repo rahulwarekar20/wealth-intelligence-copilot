@@ -161,6 +161,24 @@ export interface EvidencePoint {
   point: string;
   agent?: string;
   citation?: string;
+  /** False when the citation doesn't match a source the specialist actually retrieved. */
+  citation_verified?: boolean;
+  /** Why the citation couldn't be verified. */
+  citation_issue?: string;
+}
+
+/** The specialists' signals, measured separately (see backend agents/guardrails.py). */
+export interface SignalAssessment {
+  /** Net lean, -1 (bearish) to +1 (bullish); null with no signals. Not a confidence measure. */
+  direction: number | null;
+  direction_label: "positive" | "neutral" | "negative" | null;
+  /** 1 = all signals point the same way, 0 = bullish vs bearish; null with fewer than 2 signals. */
+  agreement: number | null;
+  /** Share of the requested specialists that returned a signal. */
+  coverage: number;
+  signals_available: number;
+  signals_requested: number;
+  missing: string[];
 }
 
 /** A source behind an answer; url is null for non-web sources (e.g. portfolio data). */
@@ -197,7 +215,12 @@ export interface Recommendation {
   portfolio_impact?: string;
   disagreement_flag: boolean;
   disagreement_note?: string | null;
-  evidence_diversity_score?: number;
+  /** Agent agreement (0–1), stored under its original name; null when not assessable. */
+  evidence_diversity_score?: number | null;
+  signal_assessment?: SignalAssessment;
+  /** Why confidence was capped (thin coverage, unverifiable citations). */
+  confidence_notes?: string[];
+  citation_check?: { verified: number; cited: number; evidence_signals_withheld: number };
   disclosure: string;
   prompt_version?: string;
   sources?: Source[];
@@ -242,7 +265,7 @@ export interface JournalEntry {
   query: string;
   recommendation: Partial<Recommendation> & Partial<PortfolioStrategy>;
   confidence: number;
-  evidence_diversity_score: number;
+  evidence_diversity_score: number | null;
   created_at: string;
 }
 

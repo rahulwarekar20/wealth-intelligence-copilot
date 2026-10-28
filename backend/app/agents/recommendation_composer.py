@@ -1,12 +1,17 @@
 """
 Recommendation Composer: merges the specialist agents' outputs into one
 recommendation (action, confidence, key points, evidence for/against).
-Measures how much the agents agree and enforces the disagreement guardrail in
-code. Also composes multi-stock comparisons.
+Signal direction, agreement and coverage, citation checks and the confidence
+caps are applied in code via guardrails.py. Also composes multi-stock comparisons.
 """
 
 import json
+from typing import Optional
+
 from app.agents.llm_client import invoke_llm_json
+from app.agents.guardrails import (
+    apply_confidence_policy, assess_signals, check_points, citation_catalog, describe_assessment,
+)
 
 DISCLOSURE = (
     "This analysis is informational only and does not constitute personalized investment advice. "
@@ -15,66 +20,14 @@ DISCLOSURE = (
 VALID_ACTIONS = {"buy", "hold", "sell", "rebalance"}
 
 
-def compute_diversity_score(
-    portfolio_result: dict,
-    evidence_result: dict,
-    market_result: dict
-) -> float:
-    """
-    Evidence Diversity Scorer -- deterministic logic that scores
-    how much the agents agree with each other.
-
-    Agents that were skipped or failed (empty result / unknown signal)
-    are left out instead of being counted as disagreement.
-
-    Returns a score between 0 and 1:
-    - 1.0 = all agents agree strongly
-    - 0.5 = mixed signals
-    - 0.0 = agents strongly disagree
-    """
-    signals = []
-
-    # Portfolio signal
-    concentration = (portfolio_result or {}).get("concentration_flag")
-    if concentration == "LOW":
-        signals.append(1.0)
-    elif concentration == "MEDIUM":
-        signals.append(0.5)
-    elif concentration == "HIGH":
-        signals.append(0.0)
-
-    # Evidence signal
-    tone = (evidence_result or {}).get("overall_evidence_tone")
-    if (evidence_result or {}).get("error"):
-        tone = None
-    if tone == "bullish":
-        signals.append(1.0)
-    elif tone in ("mixed", "neutral"):
-        signals.append(0.5)
-    elif tone == "bearish":
-        signals.append(0.0)
-
-    # Market signal
-    market_signal = (market_result or {}).get("market_signal")
-    if market_signal == "bullish":
-        signals.append(1.0)
-    elif market_signal == "neutral":
-        signals.append(0.5)
-    elif market_signal == "bearish":
-        signals.append(0.0)
-
-    if signals:
-        return round(sum(signals) / len(signals), 2)
-    return 0.5
-
-
 def compose_recommendation(
     query: str,
     ticker: str,
     intent: str,
     portfolio_result: dict,
     evidence_result: dict,
-    market_result: dict
+    market_result: dict,
+    agents_needed: Optional[list] = None,
 ) -> dict:
     """
     Recommendation Composer -- the 5th agent.
@@ -83,8 +36,25 @@ def compose_recommendation(
 
     On LLM failure returns a dict containing "error" so the API can report
     the failure instead of presenting (and journaling) a fake recommendation.
+
+    Guardrails (see guardrails.py) are applied in code: direction, agreement and
+    coverage are assessed separately; the evidence agent's signals are only
+    passed on if their citations match retrieved sources; the final points are
+    citation-checked per specialist; and confidence is capped on conflict,
+    thin coverage or unverifiable citations.
     """
-    diversity_score = compute_diversity_score(portfolio_result, evidence_result, market_result)
+    assessment = assess_signals(portfolio_result, evidence_result, market_result, agents_needed)
+    catalog = citation_catalog(ticker, portfolio_result, evidence_result, market_result)
+
+    # The evidence agent's signals reach the composer only if their citations check out
+    evidence_signals, withheld_items = {}, []
+    for side in ("evidence_for", "evidence_against"):
+        items = [dict(i) for i in (evidence_result or {}).get(side) or [] if isinstance(i, dict)]
+        check_points(items, catalog, default_agent="evidence_agent")
+        evidence_signals[side] = [i for i in items if i["citation_verified"]]
+        withheld_items += [{"citation": i.get("citation"), "issue": i.get("citation_issue")}
+                           for i in items if not i["citation_verified"]]
+    withheld = len(withheld_items)
 
     composer_context = f"""
 INVESTOR PROFILE: {portfolio_result.get('investor_profile', 'not available')}
@@ -101,8 +71,9 @@ EVIDENCE AGENT OUTPUT:
 - Evidence Quality: {evidence_result.get('evidence_quality', 'N/A')}
 - Key Opportunity: {evidence_result.get('key_opportunity', 'None')}
 - Key Risk: {evidence_result.get('key_risk', 'None')}
-Evidence For: {json.dumps(evidence_result.get('evidence_for', []), indent=2)}
-Evidence Against: {json.dumps(evidence_result.get('evidence_against', []), indent=2)}
+Evidence For: {json.dumps(evidence_signals['evidence_for'], indent=2)}
+Evidence Against: {json.dumps(evidence_signals['evidence_against'], indent=2)}
+(Withheld {withheld} evidence signal(s) whose citations did not match a retrieved source.)
 
 MARKET DATA AGENT OUTPUT:
 - Market Signal: {market_result.get('market_signal', 'NOT RUN')}
@@ -112,8 +83,7 @@ MARKET DATA AGENT OUTPUT:
 - Intraday Analysis: {market_result.get('intraday_analysis', 'N/A')}
 
 {_sec_fallback_text(evidence_result)}
-EVIDENCE DIVERSITY SCORE: {diversity_score}
-(1.0 = all agents agree, 0.0 = agents strongly disagree)
+{describe_assessment(assessment)}
 """
 
     system_prompt = """You are the Recommendation Composer for a wealth intelligence platform.
@@ -134,10 +104,14 @@ WRITING STYLE -- the reader scans this on screen:
 - Lead each point with the fact or number (e.g. "Revenue up 15% to $281.7B in FY2026").
 
 RULES:
-1. If diversity_score is below 0.4, confidence MUST be low and you MUST flag disagreement
+1. Use the SIGNAL ASSESSMENT. Agreement below 0.5 means the specialists point in opposite
+   directions: confidence MUST be low and you MUST flag disagreement. Unanimous signals in either
+   direction are agreement — a confident sell or trim is allowed when all signals are negative.
+   If coverage is incomplete, say which evidence is missing.
 2. Never omit contradicting evidence to make the answer sound more decisive
-3. Keep the Evidence Agent's citation on every point (e.g. "MSFT 10-K FY2026, Item 1A Risk Factors");
-   use "market data", "news headlines" or "portfolio data" for points from the other agents
+3. Keep the Evidence Agent's citation on every point exactly as given (e.g. "MSFT 10-K FY2026, Item 1A
+   Risk Factors"); use "market data", "news headlines" or "portfolio data" for points from the other
+   agents. Never cite a source that is not listed above — citations are checked in code
 4. Prefer official SEC figures over other numbers and quote them exactly
 5. Fit the action to the INVESTOR PROFILE: a conservative investor or a short horizon calls for
    more caution (prefer hold/trim over adding to volatile positions); never suggest taking a
@@ -168,7 +142,7 @@ Respond with JSON only, no other text."""
     try:
         result = invoke_llm_json(system_prompt, user_prompt, max_tokens=900)
     except Exception as e:
-        return {"error": f"Could not compose recommendation: {e}", "evidence_diversity_score": diversity_score}
+        return {"error": f"Could not compose recommendation: {e}", "evidence_diversity_score": assessment["agreement"]}
 
     # Normalise the model output so the UI and journal always get valid fields
     action = str(result.get("action", "hold")).lower()
@@ -179,25 +153,37 @@ Respond with JSON only, no other text."""
         confidence = 0.0
     confidence = min(max(confidence, 0.0), 1.0)
 
-    # Enforce the low-diversity guardrail in code, not just in the prompt
-    if diversity_score < 0.4:
-        confidence = min(confidence, 0.4)
-        result["disagreement_flag"] = True
-        result.setdefault("disagreement_note", "Specialist agents produced conflicting signals.")
-
-    result["confidence"] = round(confidence, 2)
-    result["confidence_label"] = "high" if confidence >= 0.7 else "medium" if confidence >= 0.4 else "low"
     result["summary"] = result.get("summary") or "No summary provided."
     result["answer"] = result.get("answer") or result["summary"]
     # Hard caps keep the card scannable even if the model ignores the length rules
     result["key_points"] = _points(result.get("key_points"), 4)
     result["evidence_for"] = _points(result.get("evidence_for"), 3)
     result["evidence_against"] = _points(result.get("evidence_against"), 3)
-    result["disagreement_flag"] = bool(result.get("disagreement_flag", False))
+
+    # Check every final citation against what the specialists actually retrieved
+    verified = cited = 0
+    for side in ("key_points", "evidence_for", "evidence_against"):
+        v, n = check_points(result[side], catalog)
+        verified, cited = verified + v, cited + n
+
+    # Confidence and disagreement are decided in code, not by the model
+    policy = apply_confidence_policy(confidence, assessment, verified, cited)
+    model_note = result.get("disagreement_note")
+    result["confidence"] = policy["confidence"]
+    result["confidence_label"] = ("high" if policy["confidence"] >= 0.7
+                                  else "medium" if policy["confidence"] >= 0.4 else "low")
+    result["disagreement_flag"] = policy["disagreement_flag"]
+    result["disagreement_note"] = (model_note or policy["disagreement_note"]) if policy["disagreement_flag"] else None
+    result["confidence_notes"] = policy["confidence_notes"]
+    result["signal_assessment"] = assessment
+    # Audit trail of the check, journaled with the answer
+    result["citation_check"] = {"verified": verified, "cited": cited, "evidence_signals_withheld": withheld,
+                                "withheld": withheld_items}
     result["disclosure"] = DISCLOSURE
     result["sources"] = evidence_result.get("sources") or []
     result["metrics"] = build_metrics(ticker, portfolio_result, evidence_result, market_result)
-    result["evidence_diversity_score"] = diversity_score
+    # Journal column keeps its old name; it now stores agreement (None when not assessable)
+    result["evidence_diversity_score"] = assessment["agreement"]
     result["prompt_version"] = "v2"
     return result
 

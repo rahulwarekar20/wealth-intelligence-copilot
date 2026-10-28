@@ -118,7 +118,8 @@ def get_journal(
             "query": d.query_text,
             "recommendation": d.recommendation_json,
             "confidence": float(d.confidence) if d.confidence else 0,
-            "evidence_diversity_score": float(d.evidence_diversity_score) if d.evidence_diversity_score else 0,
+            # Agent agreement (0–1); None when it couldn't be assessed (fewer than 2 signals)
+            "evidence_diversity_score": float(d.evidence_diversity_score) if d.evidence_diversity_score is not None else None,
             "created_at": str(d.created_at)
         }
         for d in decisions
