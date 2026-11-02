@@ -43,6 +43,8 @@ _NOT_TICKERS = {
     "I", "A", "AI", "ALL", "AND", "OR", "THE", "US", "USA", "UK", "EU", "OK", "ETF", "ETFS",
     "IRA", "ROTH", "CEO", "CFO", "IPO", "EPS", "PE", "YOY", "GDP", "FED", "USD", "EUR", "FIRE",
     "NOW", "IT", "ON", "SO", "BUY", "SELL", "HOLD", "TRIM",
+    # SQL / code keywords: pasted code or injection attempts are not ticker requests
+    "DROP", "TABLE", "SELECT", "DELETE", "INSERT", "UPDATE", "FROM", "WHERE", "UNION", "EXEC", "NULL", "SCRIPT",
 }
 
 

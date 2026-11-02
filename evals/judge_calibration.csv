@@ -1,0 +1,31 @@
+Run,Case ID,Claim #,Claim,Judge label,Human label,Agree (supported vs not),Reviewer note
+baseline,E10,3,[TSM] Evidence agent cites mixed tone and low evidence quality,NOT_SUPPORTED,NOT_SUPPORTED,yes,"internal pipeline wording, not a fact about TSM"
+baseline,H05,14,"[GOOGL] P/E ratio 14.5, below industry average",NOT_SUPPORTED,NOT_SUPPORTED,yes,P/E 14.5 is in data; no industry average is
+baseline,E10,7,[TSM] Mixed tone and low evidence quality raise valuation concerns,NOT_SUPPORTED,NOT_SUPPORTED,yes,internal pipeline wording
+baseline,H02,9,[MSFT] Regulatory enforcement could limit AI product rollout,NOT_SUPPORTED,SUPPORTED,NO,10-K: regulatory enforcement focused on product design and 'could impact our business'; fair paraphrase
+baseline,H03,7,"[JPM] P/E ratio 13.6, below industry average",NOT_SUPPORTED,NOT_SUPPORTED,yes,no industry P/E in data
+baseline,H05,13,"[GOOGL] Net margin 32.8% FY2025, above peers",NOT_SUPPORTED,NOT_SUPPORTED,yes,no peer margins in data
+baseline,E10,4,[TSM] Signal assessment shows neutral direction with zero agreement,NOT_SUPPORTED,NOT_SUPPORTED,yes,internal signal assessment quoted as fact
+baseline,E02,10,"[MSFT] Price down 1.55%, near 52‑week low $349.2",CONTRADICTED,CONTRADICTED,yes,$521.91 vs 52w range $349.2-$551.15: near the high
+baseline,H01,10,[AAPL] Long‑term debt increased to $78.3B FY2025,CONTRADICTED,CONTRADICTED,yes,debt fell $85.8B -> $78.3B
+baseline,E02,3,[MSFT] Signal assessment negative (-0.67) with mixed evidence,NOT_SUPPORTED,NOT_SUPPORTED,yes,internal score -0.67
+baseline,K02,3,[MSFT] Price down 1.55% near 52‑week low,CONTRADICTED,CONTRADICTED,yes,"near 52w high, not low"
+baseline,E12,3,[AAPL] Market signal bearish (-0.67) with moderate momentum,NOT_SUPPORTED,NOT_SUPPORTED,yes,bearish signal is in data but -0.67 is an internal score
+baseline,K03,6,[META] Operating margin 30.1% in FY2025,CONTRADICTED,CONTRADICTED,yes,30.1% is net margin
+baseline,H10,9,[KO] Risk of brand dilution and trademark litigation noted,NOT_SUPPORTED,NOT_SUPPORTED,yes,excerpt defines trademarks; no dilution/litigation risk
+baseline,K03,7,[META] P/E 20.9x below industry average,NOT_SUPPORTED,NOT_SUPPORTED,yes,no industry P/E in data
+baseline,H04,9,[GOOGL] Capital expenditures jumped to $91.4B FY2025,SUPPORTED,SUPPORTED,yes,capex $52.5B -> $91.4B
+baseline,H13,23,[NVDA] Net margin 55.6% FY2026 indicates high profitability,SUPPORTED,SUPPORTED,yes,net margin 55.6%
+baseline,H05,10,[AAPL] International trade restrictions risk,SUPPORTED,SUPPORTED,yes,Item 1A discusses international trade exposure
+baseline,K05,1,[GOOGL answer] Google (GOOGL) is a mixed case; consider holding the current position.,SUPPORTED,SUPPORTED,yes,recommendation consistent with mixed signals
+baseline,E08,10,[NVDA] Cyber‑attack risk during conflicts,SUPPORTED,SUPPORTED,yes,Item 1A: heightened cyber-attack risk during conflicts
+baseline,H04,4,"[GOOGL] Current price $279.84, near 52‑week low",SUPPORTED,SUPPORTED,yes,$279.84 vs 52w low $270.7
+baseline,K05,9,[GOOGL] Long‑term debt increased to $46.5B FY2025,SUPPORTED,SUPPORTED,yes,debt $10.9B -> $46.5B
+baseline,H06,9,[NVDA] Uncertain success of standalone software products,SUPPORTED,SUPPORTED,yes,Item 1A: standalone software may not succeed
+baseline,H13,14,[AAPL] Supply chain risk from single-source components,SUPPORTED,SUPPORTED,yes,Item 1A: custom components from only one source
+baseline,K06,8,[MSFT] Capital expenditures $115.9B may pressure margins,SUPPORTED,SUPPORTED,yes,capex $115.9B in data; 'may pressure margins' is reasoning
+baseline,H04,5,[GOOGL] Revenue grew 15.1% to $402.8B FY2025,SUPPORTED,SUPPORTED,yes,revenue +15.1% to $402.8B
+baseline,K06,5,[MSFT] Revenue grew 17.8% to $331.8B FY2026,SUPPORTED,SUPPORTED,yes,revenue +17.8% to $331.8B
+baseline,K06,9,[MSFT] Vertically‑integrated competitors risk market share loss,SUPPORTED,SUPPORTED,yes,Item 1A: vertically-integrated competitors
+baseline,E04,7,[AAPL] Net margin rose to 26.9% FY2025,SUPPORTED,SUPPORTED,yes,26.9% vs FY2024 ~24.0% (computed)
+baseline,H03,9,[JPM] Regulatory risk cited in Item 1A Risk Factors,SUPPORTED,SUPPORTED,yes,Item 1A legal and regulatory risks

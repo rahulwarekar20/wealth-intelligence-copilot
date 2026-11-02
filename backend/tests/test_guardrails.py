@@ -141,6 +141,8 @@ CATALOG = citation_catalog("MSFT", {"concentration_flag": "HIGH"}, EVIDENCE, {"m
     ("MSFT 10-K FY2026, Item 7 MD&A", None, False),                 # section that was never retrieved
     ("AAPL 10-K FY2026, Item 1A Risk Factors", None, False),        # another company
     ("MSFT 10-K FY2026 financials", "evidence_agent", True),
+    ("MSFT 10‑K FY2026 financials", "evidence_agent", True),        # non-breaking hyphen, as models write it
+    ("MSFT 10–K FY2026, Item 1A Risk Factors", None, True),         # en dash
     ("news headlines", None, False),                                # no headlines were retrieved
     ("market data", "market_data_agent", True),
     ("portfolio data", "portfolio_agent", True),
@@ -236,6 +238,24 @@ def test_composer_reports_missing_evidence(monkeypatch):
     assert result["confidence"] == LIMITED_EVIDENCE_CAP
     assert result["disagreement_flag"] is False
     assert any("evidence agent" in n for n in result["confidence_notes"])
+
+
+def test_composer_gets_allowed_citations_and_sec_figures(monkeypatch):
+    """T136 - The composer sees the official SEC table and the exact citations it may use"""
+    _, prompt = _compose(monkeypatch, GOOD_OUTPUT)
+    allowed = prompt.split("ALLOWED CITATIONS")[1].split("SIGNAL ASSESSMENT")[0]
+    for label in ("MSFT 10-K FY2026, Item 1A Risk Factors", "analyst-note.pdf", "market data", "portfolio data"):
+        assert label in allowed
+    assert "news headlines" not in allowed            # none were retrieved
+    assert "Official SEC financials" in prompt
+
+
+def test_composer_told_when_no_sec_filings(monkeypatch):
+    """T137 - An ETF / non-US ticker is flagged as having no SEC filings"""
+    evidence = {**EVIDENCE, "raw_evidence": {**EVIDENCE["raw_evidence"], "sec_financials_text": None, "passage_citations": []}}
+    result, prompt = _compose(monkeypatch, GOOD_OUTPUT, evidence=evidence)
+    assert "SEC FILINGS: none available" in prompt
+    assert result["prompt_version"] == recommendation_composer.PROMPT_VERSION
 
 
 def test_decision_journal_saves_to_db(auth_client):
