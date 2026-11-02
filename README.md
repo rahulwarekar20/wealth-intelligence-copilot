@@ -387,6 +387,12 @@ Every file starts with a comment explaining its job, and every backend function 
 
 ---
 
+## Evaluation
+
+A 42-case golden-dataset evaluation of the copilot (routing, citation integrity, faithfulness, policy compliance, latency and cost), with baseline vs improved results: see [docs/Week 4 Evaluation Report.md](docs/Week%204%20Evaluation%20Report.md) and [evals/](evals/README.md).
+
+---
+
 ## Specification documents
 
 - Document 1: Product Vision and Business Requirements

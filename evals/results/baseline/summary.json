@@ -1,0 +1,61 @@
+{
+  "run": "baseline",
+  "cases": 42,
+  "task_success": {
+    "pass": 24,
+    "n": 42,
+    "rate": 0.571
+  },
+  "M1_handling_correct": {
+    "pass": 40,
+    "n": 42,
+    "rate": 0.952
+  },
+  "M2_citation_integrity": {
+    "pass": 28,
+    "n": 33,
+    "rate": 0.848
+  },
+  "M2_citation_point_rate": 0.95,
+  "M3_faithful_cases": {
+    "pass": 17,
+    "n": 30,
+    "rate": 0.567
+  },
+  "M3_faithful_claim_rate": 0.929,
+  "M4_policy_compliance": {
+    "pass": 40,
+    "n": 42,
+    "rate": 0.952
+  },
+  "M5_latency_p50_s": 3.465,
+  "M5_latency_p95_s": 8.976,
+  "M5_latency_max_s": 11.6,
+  "M5_cost_per_question_usd_mean": 0.00074,
+  "M5_cost_per_question_usd_p95": 0.00167,
+  "tokens_per_question_mean": 4082,
+  "llm_calls_per_question_mean": 2.81,
+  "errors": 0,
+  "by_scenario": {
+    "happy": {
+      "pass": 14,
+      "n": 20,
+      "rate": 0.7
+    },
+    "edge": {
+      "pass": 7,
+      "n": 12,
+      "rate": 0.583
+    },
+    "known_failure": {
+      "pass": 1,
+      "n": 6,
+      "rate": 0.167
+    },
+    "adversarial": {
+      "pass": 2,
+      "n": 4,
+      "rate": 0.5
+    }
+  }
+}

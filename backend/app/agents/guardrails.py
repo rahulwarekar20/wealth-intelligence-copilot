@@ -99,9 +99,14 @@ def describe_assessment(a: dict) -> str:
 
 # ── 2. Citation verification ─────────────────────────────────────────────────
 
+# Models often write "10‑K" with a non-breaking or other Unicode hyphen; treat them all as "-"
+_DASHES = re.compile(r"[‐‑‒–—−﹣－]")
+
+
 def _norm(text: str) -> str:
-    """Lower-cased citation text without brackets and with single spaces, for matching."""
-    return re.sub(r"\s+", " ", re.sub(r"[\[\]()]", "", str(text or "")).lower()).strip()
+    """Lower-cased citation text without brackets, with ASCII hyphens and single spaces, for matching."""
+    text = _DASHES.sub("-", str(text or "")).replace(" ", " ").replace(" ", " ")
+    return re.sub(r"\s+", " ", re.sub(r"[\[\]()]", "", text).lower()).strip()
 
 
 def _item_key(citation: str) -> Optional[tuple]:
@@ -126,6 +131,21 @@ def citation_catalog(ticker: str, portfolio_result: dict, evidence_result: dict,
         "documents": [d.lower() for d in raw.get("documents_used") or []],
         "evidence_ok": evidence_ok,
     }
+
+
+def allowed_citations(ticker: str, evidence_result: dict, catalog: dict) -> list[str]:
+    """The exact citation labels the composer may use: one per source actually retrieved."""
+    raw = (evidence_result or {}).get("raw_evidence") or {}
+    labels = list(raw.get("passage_citations") or [])
+    if catalog["sec_financials"]:
+        fy = ((raw.get("sec_highlights") or {}).get("fiscal_year_end") or "")[:4]
+        labels.append(f"{ticker.upper()} 10-K FY{fy} financials" if fy else f"{ticker.upper()} 10-K financials")
+    labels += [name for name in raw.get("documents_used") or []]
+    for ok, label in ((catalog["market"], "market data"), (catalog["news"], "news headlines"),
+                      (catalog["portfolio"], "portfolio data")):
+        if ok:
+            labels.append(label)
+    return labels
 
 
 def classify_citation(citation: str, catalog: dict) -> tuple[Optional[str], bool, str]:

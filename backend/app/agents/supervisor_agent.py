@@ -47,7 +47,7 @@ Classify the intent as one of:
 - portfolio_wide: about the user's overall portfolio (health, rebalance, diversification, concentration)
 - retirement: about retirement planning, savings goals, pensions, 401k/IRA, financial independence,
   or a reply giving personal details (age, income, expenses) to an earlier retirement question
-- general_research: market or sector questions that are not about a specific stock
+- general_research: market or sector questions that do not name any specific company or ticker
 - unclear: you cannot tell what the user wants, or which stock they mean
 
 Ticker rules:
@@ -55,6 +55,8 @@ Ticker rules:
 - Prefer the user's own holdings when a company name matches one: {holdings_text}
 - For follow-ups like "should I sell it?", use the stock from the previous conversation.
 - Do NOT treat ordinary words (e.g. "all", "it", "on", "a", "now") as tickers.
+- Questions that name or compare specific companies are single_position, however many are named;
+  if more than {MAX_TICKERS} are named, return the first {MAX_TICKERS}.
 - Return at most {MAX_TICKERS} tickers. Return [] for portfolio_wide, retirement or general_research.
 - If the question is about a specific stock but you cannot tell which one, use intent "unclear".
 

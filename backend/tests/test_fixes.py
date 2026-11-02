@@ -242,6 +242,13 @@ def test_ask_typed_unknown_symbol_reported(auth_client, monkeypatch):
     assert calls == ["MSFT"]
 
 
+def test_sql_keywords_are_not_typed_tickers():
+    """T138 - Pasted SQL / code is never analysed as a stock (e.g. 'DROP' is a real penny stock)"""
+    from app.services.ask_service import _typed_symbols
+    assert _typed_symbols("}}{{ DROP TABLE holdings; -- $$$") == []
+    assert _typed_symbols("Should I buy XQZW?") == ["XQZW"]
+
+
 def test_ask_unclear_asks_which_stock(auth_client, monkeypatch):
     """T59 - No identifiable stock -> clarifying question, no analysis"""
     calls = _mock_ask(monkeypatch, {"intent": "unclear"})

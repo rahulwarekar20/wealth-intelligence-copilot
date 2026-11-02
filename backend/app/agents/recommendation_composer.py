@@ -10,8 +10,11 @@ from typing import Optional
 
 from app.agents.llm_client import invoke_llm_json
 from app.agents.guardrails import (
-    apply_confidence_policy, assess_signals, check_points, citation_catalog, describe_assessment,
+    allowed_citations, apply_confidence_policy, assess_signals, check_points, citation_catalog, describe_assessment,
 )
+
+# Bumped whenever the composer prompt or its context changes; journaled with every answer
+PROMPT_VERSION = "v3"
 
 DISCLOSURE = (
     "This analysis is informational only and does not constitute personalized investment advice. "
@@ -55,6 +58,7 @@ def compose_recommendation(
         withheld_items += [{"citation": i.get("citation"), "issue": i.get("citation_issue")}
                            for i in items if not i["citation_verified"]]
     withheld = len(withheld_items)
+    citations = allowed_citations(ticker, evidence_result, catalog)
 
     composer_context = f"""
 INVESTOR PROFILE: {portfolio_result.get('investor_profile', 'not available')}
@@ -82,7 +86,10 @@ MARKET DATA AGENT OUTPUT:
 - Daily Change: {market_result.get('daily_change_pct') or 0:.2f}%
 - Intraday Analysis: {market_result.get('intraday_analysis', 'N/A')}
 
-{_sec_fallback_text(evidence_result)}
+{_sec_text(evidence_result)}
+ALLOWED CITATIONS (use one of these exactly, nothing else):
+{chr(10).join('- ' + c for c in citations) or '- none'}
+
 {describe_assessment(assessment)}
 """
 
@@ -112,8 +119,17 @@ RULES:
 3. Keep the Evidence Agent's citation on every point exactly as given (e.g. "MSFT 10-K FY2026, Item 1A
    Risk Factors"); use "market data", "news headlines" or "portfolio data" for points from the other
    agents. Never cite a source that is not listed above — citations are checked in code
-4. Prefer official SEC figures over other numbers and quote them exactly
-5. Fit the action to the INVESTOR PROFILE: a conservative investor or a short horizon calls for
+4. Prefer official SEC figures over other numbers and quote them exactly, with the right label
+   (net margin is not operating margin) and the right direction versus the prior year
+5. GROUNDING: state only facts and numbers that appear above. Do NOT compare with peers, the
+   industry or the sector unless such figures are given; do not add outside knowledge
+6. The SIGNAL ASSESSMENT, agent names, tones and scores are internal: never quote them as facts
+   about the company (no "signal -0.67", no "evidence agent says")
+7. "Intraday Analysis" describes TODAY's price range only; never call it a 52-week high or low
+8. Every citation must be copied from ALLOWED CITATIONS. If the question asks for a filing or
+   figure that is not available (e.g. a 10-Q, free cash flow), say it is not available
+9. If no SEC filings are available (e.g. an ETF or non-US issuer), say so in the answer
+10. Fit the action to the INVESTOR PROFILE: a conservative investor or a short horizon calls for
    more caution (prefer hold/trim over adding to volatile positions); never suggest taking a
    position above the investor's stated maximum position size
 
@@ -184,16 +200,23 @@ Respond with JSON only, no other text."""
     result["metrics"] = build_metrics(ticker, portfolio_result, evidence_result, market_result)
     # Journal column keeps its old name; it now stores agreement (None when not assessable)
     result["evidence_diversity_score"] = assessment["agreement"]
-    result["prompt_version"] = "v2"
+    result["prompt_version"] = PROMPT_VERSION
     return result
 
 
-def _sec_fallback_text(evidence_result: dict) -> str:
-    """If the Evidence Agent's LLM step failed, pass the official SEC figures through directly."""
-    if not evidence_result.get("error"):
+def _sec_text(evidence_result: dict) -> str:
+    """
+    The official SEC figures, passed straight to the composer so it quotes them
+    from the source rather than from the Evidence Agent's paraphrase; or a note
+    that the ticker has no SEC filings (ETF / non-US issuer).
+    """
+    if not evidence_result:
         return ""
     text = (evidence_result.get("raw_evidence") or {}).get("sec_financials_text")
-    return f"\n{text}\n(The Evidence Agent's analysis failed; use these official figures directly.)\n" if text else ""
+    if not text:
+        return "\nSEC FILINGS: none available for this ticker (e.g. an ETF or non-US issuer).\n"
+    note = " The Evidence Agent's analysis failed; use these official figures directly." if evidence_result.get("error") else ""
+    return f"\n{text}\n(Quote figures from this table.{note})\n"
 
 
 def compose_comparison(query: str, analyses: list[dict]) -> dict | None:
